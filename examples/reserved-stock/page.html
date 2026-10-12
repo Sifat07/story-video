@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reserved Stock Explained</title>
+<meta name="description" content="Why an online shop can say 'Only 3 left' when 10 are on the shelf, and what happens when two people buy the last one.">
+<style>
+  :root { --bg:#f6f1e7; --ink:#1f1d1a; --muted:#5f5950; --coral:#c4432a; --teal:#1f7a75; --card:#fffdf8; --line:#ddd4c4; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:18px/1.6 Georgia, "Times New Roman", serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .mono, .kicker, label, button, output { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .kicker { color: var(--teal); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; margin: 40px 0 4px; }
+  h1 { font-size: clamp(32px, 7vw, 52px); line-height: 1.1; margin: 4px 0 12px; }
+  h1 em, h2 em { color: var(--coral); }
+  h2 { font-size: clamp(24px, 5vw, 32px); line-height: 1.2; margin: 4px 0 12px; }
+  p { margin: 0 0 14px; }
+  .lede { font-size: 20px; color: var(--muted); }
+  figure { margin: 16px 0; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+  figure svg { display: block; width: 100%; height: auto; max-height: 70vh; }
+  figcaption { font-size: 15px; color: var(--muted); padding: 8px 4px 0; }
+  .lab { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px 16px; }
+  .control { display: grid; gap: 8px; margin-bottom: 16px; }
+  label { font-size: 15px; font-weight: 700; }
+  input[type=range] { width: 100%; accent-color: var(--teal); min-height: 32px; }
+  .scale { display: flex; justify-content: space-between; font: 13px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .state { border: 2px solid var(--ink); border-radius: 12px; padding: 12px; background: #fff; }
+  .state .mono { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .state .big { font-size: clamp(26px, 6vw, 40px); font-weight: 700; line-height: 1.15; }
+  .state.shown .big { color: var(--coral); }
+  .why { font-size: 17px; }
+  button { font-size: 15px; padding: 10px 16px; border-radius: 999px; border: 2px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer; min-height: 44px; }
+  button:hover { background: var(--ink); color: #fff; }
+  :focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
+  details { border-top: 1px solid var(--line); padding: 10px 0; }
+  summary { cursor: pointer; font-weight: 700; }
+  ol.steps { padding-left: 1.2em; }
+  .recap { border-left: 4px solid var(--coral); padding-left: 14px; }
+  .note { font-size: 15px; color: var(--muted); }
+  .box rect, .box text { transition: fill .25s, stroke .25s; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">The question</p>
+  <h1>Only <em>3</em> left?</h1>
+  <p class="lede">A product page says "Only 3 left". The warehouse shelf holds 10. Is the shop wrong?</p>
+
+  <figure>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" role="img" aria-labelledby="d-title d-desc" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title id="d-title">Shop shows on hand minus reserved</title>
+  <desc id="d-desc">Ten items are on the shelf. Five are in paid orders that are not yet shipped. Two are held for shoppers in checkout. Those seven are reserved. Ten on hand minus seven reserved leaves three free to sell, so the shop shows "Only 3 left".</desc>
+  <defs>
+    <pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="14" height="14" fill="#ffffff"/>
+      <rect width="6" height="14" fill="#1f7a75"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f1d1a"/>
+    </marker>
+  </defs>
+
+  <text x="90" y="90" font-size="34" fill="#1f1d1a" font-weight="700">ON THE SHELF: <tspan id="count-onhand">10</tspan></text>
+
+  <!-- Row 1: paid, not yet shipped -->
+  <g id="box-1" class="box paid"><rect x="90" y="120" width="120" height="120" rx="10" fill="#2a2724"/><text x="150" y="190" text-anchor="middle" font-size="24" fill="#ffffff">paid</text></g>
+  <g id="box-2" class="box paid"><rect x="240" y="120" width="120" height="120" rx="10" fill="#2a2724"/><text x="300" y="190" text-anchor="middle" font-size="24" fill="#ffffff">paid</text></g>
+  <g id="box-3" class="box paid"><rect x="390" y="120" width="120" height="120" rx="10" fill="#2a2724"/><text x="450" y="190" text-anchor="middle" font-size="24" fill="#ffffff">paid</text></g>
+  <g id="box-4" class="box paid"><rect x="540" y="120" width="120" height="120" rx="10" fill="#2a2724"/><text x="600" y="190" text-anchor="middle" font-size="24" fill="#ffffff">paid</text></g>
+  <g id="box-5" class="box paid"><rect x="690" y="120" width="120" height="120" rx="10" fill="#2a2724"/><text x="750" y="190" text-anchor="middle" font-size="24" fill="#ffffff">paid</text></g>
+
+  <!-- Row 2: two held in checkout, three free -->
+  <g id="box-6" class="box held"><rect x="90" y="270" width="120" height="120" rx="10" fill="url(#hatch)" stroke="#1f7a75" stroke-width="4"/><rect x="108" y="312" width="84" height="36" rx="6" fill="#ffffff"/><text x="150" y="338" text-anchor="middle" font-size="24" fill="#1f7a75" font-weight="700">held</text></g>
+  <g id="box-7" class="box held"><rect x="240" y="270" width="120" height="120" rx="10" fill="url(#hatch)" stroke="#1f7a75" stroke-width="4"/><rect x="258" y="312" width="84" height="36" rx="6" fill="#ffffff"/><text x="300" y="338" text-anchor="middle" font-size="24" fill="#1f7a75" font-weight="700">held</text></g>
+  <g id="box-8" class="box free"><rect x="392" y="272" width="116" height="116" rx="10" fill="#ffffff" stroke="#c4432a" stroke-width="5"/><text x="450" y="338" text-anchor="middle" font-size="24" fill="#c4432a" font-weight="700">free</text></g>
+  <g id="box-9" class="box free"><rect x="542" y="272" width="116" height="116" rx="10" fill="#ffffff" stroke="#c4432a" stroke-width="5"/><text x="600" y="338" text-anchor="middle" font-size="24" fill="#c4432a" font-weight="700">free</text></g>
+  <g id="box-10" class="box free"><rect x="692" y="272" width="116" height="116" rx="10" fill="#ffffff" stroke="#c4432a" stroke-width="5"/><text x="750" y="338" text-anchor="middle" font-size="24" fill="#c4432a" font-weight="700">free</text></g>
+
+  <!-- Key -->
+  <g font-size="28" fill="#1f1d1a">
+    <rect x="90" y="450" width="40" height="40" rx="6" fill="#2a2724"/>
+    <text x="150" y="480">Paid, not yet shipped: <tspan id="count-paid" font-weight="700">5</tspan></text>
+    <rect x="90" y="515" width="40" height="40" rx="6" fill="url(#hatch)" stroke="#1f7a75" stroke-width="3"/>
+    <text x="150" y="545">Held in a checkout: <tspan id="count-held" font-weight="700">2</tspan></text>
+    <rect x="92" y="582" width="36" height="36" rx="6" fill="#ffffff" stroke="#c4432a" stroke-width="4"/>
+    <text x="150" y="610">Free to sell: <tspan id="count-free" font-weight="700" fill="#c4432a">3</tspan></text>
+  </g>
+  <!-- Bracket: reserved = paid + held -->
+  <path d="M660 452 h20 v100 h-20" fill="none" stroke="#1f1d1a" stroke-width="3"/>
+  <text x="700" y="495" font-size="26" fill="#1f1d1a" font-weight="700">RESERVED</text>
+  <text x="700" y="530" font-size="26" fill="#1f1d1a"><tspan id="count-reserved">7</tspan> items</text>
+
+  <!-- Arrow: on hand minus reserved -->
+  <line x1="450" y1="650" x2="450" y2="745" stroke="#1f1d1a" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="475" y="705" font-size="26" fill="#6b655c">on hand − reserved</text>
+
+  <!-- Result -->
+  <rect x="90" y="765" width="720" height="170" rx="18" fill="#ffffff" stroke="#1f1d1a" stroke-width="3"/>
+  <text x="450" y="818" text-anchor="middle" font-size="26" fill="#6b655c">THE PRODUCT PAGE SHOWS</text>
+  <text id="result-text" x="450" y="892" text-anchor="middle" font-size="58" font-family="Georgia, 'Times New Roman', serif" fill="#c4432a" font-weight="700">Only 3 left</text>
+</svg>
+    <figcaption id="diagram-caption">10 on the shelf. 5 are in paid orders, 2 held in checkouts. 10 on hand minus 7 reserved leaves 3 to sell.</figcaption>
+  </figure>
+
+  <p class="kicker">How it works, step by step</p>
+  <h2>Shelf <em>minus</em> promised</h2>
+  <details open><summary>1. What you already know</summary><p>In a real shop, an item in another person's basket is still in the shop. But it is not for sale to you. It is promised.</p></details>
+  <details><summary>2. What goes wrong online</summary><p>Online, you cannot see the other baskets. If the shop counted only the shelf, it could sell the same item twice.</p></details>
+  <details><summary>3. Two counts</summary><p><strong>On hand</strong> is the number of items on the shelf. <strong>Reserved</strong> is the number of items promised to orders. The page shows <strong>on hand − reserved</strong>.</p></details>
+  <details><summary>4. Checkout holds</summary><p>Many shops hold an item while a shopper is in checkout. If the shopper pays, the item stays reserved until it ships. If the shopper leaves, or the time runs out, the item is free again. When a hold starts, and how long it lasts, varies from shop to shop.</p></details>
+  <details><summary>5. Two people, the last item</summary><p>A well-built shop takes one "take one" request at a time. (A shop that does not can sell the same item twice, and must then cancel an order.) The first request finds 1 free item and takes it. The second request finds 0 and stops. That shopper sees "sold out".</p></details>
+
+  <p class="kicker">Try it</p>
+  <h2>Move the <em>checkouts</em></h2>
+  <section class="lab" aria-labelledby="lab-title">
+    <p id="lab-title" class="note">The shelf holds 10. Five are in paid orders that are not yet shipped. Change how many shoppers are in checkout right now. The diagram above changes too.</p>
+    <div class="control">
+      <label for="held">Shoppers in checkout now: <output id="held-out" for="held">2</output></label>
+      <input id="held" type="range" min="0" max="5" step="1" value="2" aria-describedby="why">
+      <div class="scale" aria-hidden="true"><span>0</span><span>5</span></div>
+    </div>
+    <div class="compare">
+      <div class="state"><div class="mono">On the shelf</div><div class="big" id="shelf">10</div></div>
+      <div class="state shown"><div class="mono">The page shows</div><div class="big" id="shown">Only 3 left</div></div>
+    </div>
+    <p class="why" id="why" aria-live="polite"></p>
+    <button type="button" id="reset">Reset to 2 checkouts</button>
+  </section>
+
+  <details>
+    <summary>Text-only version of the diagram</summary>
+    <ul>
+      <li>On the shelf: 10 items.</li>
+      <li>Paid, not yet shipped: 5 items (reserved).</li>
+      <li>Held in a checkout: 2 items (reserved).</li>
+      <li>Reserved in total: 7 items.</li>
+      <li>Free to sell: 10 − 7 = 3. The page shows "Only 3 left".</li>
+    </ul>
+  </details>
+
+  <p class="kicker">A common wrong belief</p>
+  <p>"The item in my cart is mine." In many shops, adding to the cart reserves nothing. The item is yours when the order is confirmed.</p>
+
+  <p class="kicker">Recap</p>
+  <div class="recap">
+    <p><strong>Shown = on hand − reserved.</strong> Holds end, so the number can go up again. The last item goes to the first confirmed order.</p>
+  </div>
+  <p class="note">This describes common practice. Each shop sets its own rules for when items are reserved and for how long.</p>
+</main>
+<script>
+(() => {
+  const ON_HAND = 10, PAID = 5, START = 2;
+  const NS = 'http://www.w3.org/2000/svg';
+  const slider = document.getElementById('held');
+  const out = document.getElementById('held-out');
+  const shown = document.getElementById('shown');
+  const why = document.getElementById('why');
+  const svgText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  function drawBox(i, held) {
+    const g = document.getElementById('box-' + i);
+    if (!g) return;
+    const x = 90 + ((i - 6) * 150), y = 270;
+    g.setAttribute('class', 'box ' + (held ? 'held' : 'free'));
+    g.innerHTML = held
+      ? `<rect x="${x}" y="${y}" width="120" height="120" rx="10" fill="url(#hatch)" stroke="#1f7a75" stroke-width="4"/><rect x="${x + 18}" y="${y + 42}" width="84" height="36" rx="6" fill="#ffffff"/><text x="${x + 60}" y="${y + 68}" text-anchor="middle" font-size="24" fill="#1f7a75" font-weight="700">held</text>`
+      : `<rect x="${x + 2}" y="${y + 2}" width="116" height="116" rx="10" fill="#ffffff" stroke="#c4432a" stroke-width="5"/><text x="${x + 60}" y="${y + 68}" text-anchor="middle" font-size="24" fill="#c4432a" font-weight="700">free</text>`;
+  }
+
+  function update(held) {
+    const reserved = PAID + held, free = ON_HAND - reserved;
+    const message = free === 0 ? 'Sold out' : `Only ${free} left`;
+    for (let i = 6; i <= 10; i++) drawBox(i, i - 5 <= held);
+    svgText('count-held', held); svgText('count-free', free); svgText('count-reserved', reserved); svgText('result-text', message);
+    out.textContent = held;
+    shown.textContent = message;
+    why.textContent = free === 0
+      ? `They differ because all ${reserved} items are reserved: ${PAID} in paid orders and ${held} in checkouts. All 10 are on the shelf, but none is free to sell.`
+      : `They differ by ${reserved} reserved items: ${PAID} in paid orders and ${held} held in ${held === 1 ? 'a checkout' : 'checkouts'}. 10 on hand − ${reserved} reserved = ${free}.`;
+    svgText('d-desc', `Ten items are on the shelf. ${PAID} are in paid orders, ${held} are held in checkouts. ${reserved} are reserved, so ${free} are free to sell. The page shows ${message}.`);
+    document.getElementById('diagram-caption').textContent =
+      `10 on the shelf. ${PAID} are in paid orders, ${held} held in checkouts. 10 on hand minus ${reserved} reserved leaves ${free} to sell.`;
+  }
+
+  slider.addEventListener('input', () => update(Number(slider.value)));
+  document.getElementById('reset').addEventListener('click', () => { slider.value = START; update(START); slider.focus(); });
+  update(START);
+})();
+</script>
+</body>
+</html>

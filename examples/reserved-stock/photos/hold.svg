@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" role="img" aria-labelledby="t d" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title id="t">A checkout hold</title>
+  <desc id="d">A free item becomes held when a shopper starts checkout. If the shopper pays in time, it stays reserved until it ships. If the shopper leaves or time runs out, it becomes free again. When a hold starts and how long it lasts varies by shop.</desc>
+  <defs>
+    <pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#ffffff"/><rect width="6" height="14" fill="#1f7a75"/></pattern>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f1d1a"/></marker>
+  </defs>
+  <rect x="300" y="60" width="300" height="110" rx="14" fill="#ffffff" stroke="#c4432a" stroke-width="5"/>
+  <text x="450" y="128" text-anchor="middle" font-size="36" font-weight="700" fill="#c4432a">FREE</text>
+  <line x1="450" y1="175" x2="450" y2="290" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <text x="475" y="240" font-size="26" fill="#1f1d1a">shopper starts checkout</text>
+  <rect x="230" y="300" width="440" height="140" rx="14" fill="url(#hatch)" stroke="#1f7a75" stroke-width="5"/>
+  <rect x="245" y="335" width="410" height="70" rx="10" fill="#ffffff"/>
+  <text x="450" y="382" text-anchor="middle" font-size="34" font-weight="700" fill="#1f7a75">HELD · timer runs</text>
+  <line x1="310" y1="445" x2="250" y2="610" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <line x1="590" y1="445" x2="650" y2="610" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <text x="255" y="520" text-anchor="end" font-size="26" fill="#1f1d1a">pays in time</text>
+  <text x="660" y="520" font-size="24" fill="#1f1d1a">leaves, or</text>
+  <text x="660" y="552" font-size="24" fill="#1f1d1a">time runs out</text>
+  <rect x="60" y="620" width="360" height="140" rx="14" fill="#2a2724"/>
+  <text x="240" y="682" text-anchor="middle" font-size="32" font-weight="700" fill="#ffffff">RESERVED</text>
+  <text x="240" y="722" text-anchor="middle" font-size="24" fill="#ffffff">until it ships</text>
+  <rect x="480" y="620" width="360" height="140" rx="14" fill="#ffffff" stroke="#c4432a" stroke-width="5"/>
+  <text x="660" y="682" text-anchor="middle" font-size="32" font-weight="700" fill="#c4432a">FREE AGAIN</text>
+  <text x="660" y="722" text-anchor="middle" font-size="24" fill="#c4432a">count goes up</text>
+  <text x="450" y="860" text-anchor="middle" font-size="25" fill="#6b655c">When a hold starts, and how long</text>
+  <text x="450" y="896" text-anchor="middle" font-size="25" fill="#6b655c">it lasts, varies from shop to shop.</text>
+</svg>

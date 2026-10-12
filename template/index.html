@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>story-video frame</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500&family=Geist+Mono:wght@500&display=block" rel="stylesheet">
+<style>
+  /* Dark theme (default). "colors" in scenes.json overrides any of these. */
+  :root { --bg:#0e1113; --ink:#f2ede3; --muted:#a29c90; --kicker:#6cc4a1; --accent:#e0a94f; --line:#2c3236; --scrim:rgba(14,17,19,.8); }
+  /* "theme": "light": paper, charcoal, coral accent, teal kicker. */
+  body.light { --bg:#f6f1e7; --ink:#26231f; --muted:#6b645a; --kicker:#2f7f7a; --accent:#d0644a; --line:#d9d0bf; --scrim:rgba(246,241,231,.85); }
+  * { margin:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; background:var(--bg); overflow:hidden; color:var(--ink); }
+  #stage { position:absolute; inset:0; padding:0 96px; display:flex; flex-direction:column; justify-content:center; }
+  .line { will-change:transform,opacity; }
+  #kicker { font:500 34px/1 "Geist Mono", monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--kicker); margin-bottom:56px; }
+  #title { font:600 132px/1.02 Fraunces, Georgia, serif; letter-spacing:-.02em; }
+  #title em { font-style:italic; font-weight:500; color:var(--accent); }
+  #sub { font:400 46px/1.35 "Work Sans", sans-serif; color:var(--muted); margin-top:64px; max-width:860px; }
+  #logo { width:520px; height:520px; object-fit:contain; margin-bottom:72px; display:none; }
+  /* Timeline: where in the story this scene sits. Shown only when scenes have more than one year. */
+  #rail { position:absolute; left:96px; right:96px; bottom:200px; height:2px; background:var(--line); display:none; }
+  #dot { position:absolute; top:-9px; width:20px; height:20px; border-radius:50%; background:var(--accent); margin-left:-10px; }
+  .tick { position:absolute; top:28px; font:500 26px/1 "Geist Mono", monospace; color:var(--muted); transform:translateX(-50%); }
+  /* Image card in the upper half; .bleed fills the frame behind a scrim. */
+  .photo { position:absolute; left:96px; right:96px; top:150px; height:860px; overflow:hidden; border-radius:6px; display:none; }
+  .photo img, .photo .svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .photo .svg svg { width:100%; height:100%; }
+  .photo.contain { background:#fbfaf6; }
+  .photo.contain img { object-fit:contain; }
+  .photo.bleed { inset:0; height:auto; border-radius:0; }
+  .photo.bleed::after { content:""; position:absolute; inset:0; background:var(--scrim); }
+  body.card #stage { justify-content:flex-end; padding-bottom:330px; }
+  body.card #kicker { margin-bottom:36px; }
+  body.card #title { font-size:108px; }
+  body.card #sub { margin-top:36px; }
+  #grain { position:absolute; inset:0; pointer-events:none; opacity:.06;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E"); }
+</style>
+</head>
+<body>
+<div id="photos"></div>
+<div id="stage">
+  <img id="logo" class="line" alt="">
+  <div id="kicker" class="line"></div>
+  <h1 id="title" class="line"></h1>
+  <p id="sub" class="line"></p>
+</div>
+<div id="rail"><div id="dot"></div></div>
+<div id="grain"></div>
+<script>
+  const ease = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+  let scenes = [], current = -1, hasLogo = false, Y0 = 0, Y1 = 1;
+  const yearX = y => (y - Y0) / (Y1 - Y0) * 100;
+
+  // cfg: { scenes (with start, dur in seconds), base (project dir URL), theme, colors }, set by build.mjs.
+  window.setup = async ({ scenes: s, base, theme, colors }) => {
+    scenes = s;
+    if (theme) document.body.classList.add(theme);
+    for (const [k, v] of Object.entries(colors || {})) document.documentElement.style.setProperty('--' + k, v);
+    // Logo: optional logo.png in the project folder.
+    if (scenes.some(sc => sc.logo)) {
+      logo.src = base + 'logo.png';
+      hasLogo = await logo.decode().then(() => true, () => false);
+    }
+    // Timeline from scene years; up to five ticks.
+    const years = [...new Set(scenes.map(sc => sc.year).filter(Number.isFinite))].sort((a, b) => a - b);
+    if (years.length > 1) {
+      [Y0, Y1] = [years[0], years.at(-1)];
+      const n = Math.min(5, years.length);
+      for (let k = 0; k < n; k++) {
+        const y = years[Math.round(k * (years.length - 1) / (n - 1))];
+        const t = document.createElement('div');
+        t.className = 'tick'; t.style.left = yearX(y) + '%'; t.textContent = y;
+        rail.append(t);
+      }
+      rail.style.display = 'block';
+    }
+    for (const sc of scenes) {
+      if (!sc.photos) continue;
+      sc.el = document.createElement('div');
+      sc.el.className = 'photo ' + (sc.fit === 'contain' ? 'contain' : sc.bleed ? 'bleed' : '');
+      for (const f of sc.photos) {
+        if (sc.svgs?.[f]) {
+          // Inline SVG: parts with data-in / data-out / class="draw" animate (see render).
+          const box = document.createElement('div');
+          box.className = 'svg'; box.innerHTML = sc.svgs[f];
+          box.querySelector('svg').setAttribute('preserveAspectRatio', sc.fit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice');
+          sc.el.append(box);
+          continue;
+        }
+        const img = new Image();
+        img.src = base + 'photos/' + f; img.style.objectPosition = sc.pos || 'center';
+        sc.el.append(img);
+        await img.decode();
+      }
+      photos.append(sc.el);
+    }
+    await document.fonts.ready;
+    return true;
+  };
+
+  window.render = t => {
+    const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
+    const s = scenes[i], lt = t - s.start;
+    if (i !== current) {
+      current = i;
+      kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.textContent = s.sub || '';
+      logo.style.display = s.logo && hasLogo ? 'block' : 'none';
+      scenes.forEach(o => o.el && (o.el.style.display = o === s ? 'block' : 'none'));
+      document.body.classList.toggle('card', !!s.photos && !s.bleed);
+    }
+    // Lines rise in one after another; everything fades out in the last 0.35 s (except the final scene).
+    const lines = [...document.querySelectorAll('#stage .line')].filter(el => el.offsetParent);
+    const out = i === scenes.length - 1 ? 1 : 1 - ease((lt - (s.dur - 0.35)) / 0.35);
+    lines.forEach((el, k) => {
+      const p = ease((lt - 0.15 - k * 0.22) / 0.6);
+      el.style.opacity = p * out;
+      el.style.transform = `translateY(${(1 - p) * 40}px)`;
+    });
+    if (s.el) {
+      // Card fades with the text; slow push-in; several images crossfade in equal slices.
+      s.el.style.opacity = ease(lt / 0.5) * out;
+      const imgs = [...s.el.children], slice = s.dur / imgs.length;
+      imgs.forEach((img, k) => {
+        img.style.opacity = k === 0 ? 1 : ease((lt - k * slice) / 0.5);
+        // Animated diagrams barely push in; the parts carry the motion.
+        img.style.transform = `scale(${img.classList.contains('svg') ? 1 + 0.02 * lt / s.dur : 1.03 + 0.07 * lt / s.dur})`;
+      });
+      // Diagram motion, times in seconds from scene start: data-in fades a part in (rising 12px),
+      // data-out fades it out, class="draw" traces a stroke over data-dur (default 0.8 s).
+      s.el.querySelectorAll('[data-in], [data-out], .draw').forEach(el => {
+        const tin = +(el.dataset.in ?? 0), dur = +(el.dataset.dur ?? 0.8);
+        let o = ease((lt - tin) / 0.5);
+        if (el.dataset.out != null) o *= 1 - ease((lt - +el.dataset.out) / 0.4);
+        if (el.classList.contains('draw')) {
+          const len = el.getTotalLength?.() ?? 0;
+          el.style.strokeDasharray = len;
+          el.style.strokeDashoffset = len * (1 - ease((lt - tin) / dur));
+          // Fade in over the draw too: markers (arrowheads) ignore dashes.
+          el.style.opacity = ease((lt - tin) / dur) * (el.dataset.out != null ? o : 1);
+        } else {
+          el.style.opacity = o;
+          el.style.transform = `translateY(${(1 - ease((lt - tin) / 0.5)) * 12}px)`;
+          el.style.transformBox = 'fill-box';
+        }
+      });
+    }
+    const c = title.querySelector('[data-count]');
+    if (c) c.textContent = Math.round(+c.dataset.count * ease((lt - 0.3) / 1.6));
+    // Dot glides from the previous scene's year to this one's.
+    if (Number.isFinite(s.year)) {
+      const prev = scenes[i - 1]?.year ?? s.year;
+      dot.style.left = yearX(prev + (s.year - prev) * ease(lt / 0.9)) + '%';
+    }
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "theme": "light",
+  "music": "Instrumental, warm and curious, light piano and pizzicato strings. No vocals. Sits under narration.",
+  "scenes": [
+    {
+      "id": "hook",
+      "purpose": "Make the viewer ask why the page and the shelf disagree",
+      "vo": "A shop page says only three left. But the warehouse shelf holds ten. Is the shop wrong?",
+      "kicker": "The question",
+      "title": "Only <em>3</em> left?",
+      "sub": "The shelf holds ten.",
+      "photos": [
+        "shelf.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "known",
+      "purpose": "Connect to a physical shop: an item in someone's basket is promised",
+      "vo": "Think of a real shop. A jacket in another person's basket is still in the shop. But it is not for sale to you. It is promised.",
+      "kicker": "What you already know",
+      "title": "Promised, not <em>free</em>",
+      "sub": "In the shop, but not for sale to you.",
+      "photos": [
+        "basket.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "how",
+      "purpose": "Show the two counts and the subtraction behind the message",
+      "vo": "Online, you cannot see the other baskets. So the shop keeps two counts. On hand is what sits on the shelf. Reserved is what is already promised: here, five paid orders not yet shipped, and two shoppers in checkout. Ten minus seven leaves three.",
+      "kicker": "How it works",
+      "title": "Shelf − <em>promised</em>",
+      "sub": "10 on hand − 7 reserved = 3",
+      "photos": [
+        "diagram-build.svg"
+      ],
+      "fit": "contain",
+      "poster": true
+    },
+    {
+      "id": "hold",
+      "purpose": "A checkout hold ends in one of two ways; the count can go up",
+      "vo": "Many shops hold an item while you are in checkout. If you pay, it stays reserved until it ships. If you leave, or the time runs out, it goes back, and the count can rise again.",
+      "kicker": "Checkout holds",
+      "title": "Held, then <em>back</em>",
+      "sub": "When a hold starts, and how long it lasts, varies.",
+      "photos": [
+        "hold.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "race",
+      "purpose": "Two buyers, one item: requests are handled one at a time",
+      "vo": "Now two people try to buy the last one at the same moment. A well-built shop takes one request at a time. The first takes the item, and the count drops to zero. The second finds zero, and sees sold out.",
+      "kicker": "The last item",
+      "title": "One at <em>a time</em>",
+      "sub": "First confirmed wins. The second sees sold out.",
+      "photos": [
+        "race.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "recap",
+      "purpose": "Leave the rule and correct the cart misconception",
+      "vo": "So the number you see is the shelf, minus what is promised. In many shops, the cart alone holds nothing. The item is yours when the order is confirmed.",
+      "kicker": "Recap",
+      "title": "Yours once <em>confirmed</em>",
+      "sub": "In many shops, a cart alone holds nothing.",
+      "photos": [
+        "diagram.svg"
+      ],
+      "fit": "contain"
+    }
+  ]
+}

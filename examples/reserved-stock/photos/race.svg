@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" role="img" aria-labelledby="t d" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title id="t">Two shoppers, one item</title>
+  <desc id="d">Shopper A and shopper B both try to take the last free item. The shop's stock count handles one request at a time. First, A takes it: one free becomes zero, and A's order is confirmed. Second, B finds zero free, so B sees sold out.</desc>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f1d1a"/></marker></defs>
+  <circle cx="240" cy="130" r="70" fill="#1f7a75"/><text x="240" y="148" text-anchor="middle" font-size="52" font-weight="700" fill="#ffffff">A</text>
+  <circle cx="660" cy="130" r="70" fill="#2a2724"/><text x="660" y="148" text-anchor="middle" font-size="52" font-weight="700" fill="#ffffff">B</text>
+  <line x1="270" y1="205" x2="410" y2="300" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <line x1="630" y1="205" x2="490" y2="300" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <text x="450" y="235" text-anchor="middle" font-size="24" fill="#6b655c">both: take one</text>
+  <rect x="150" y="310" width="600" height="150" rx="18" fill="#ffffff" stroke="#1f1d1a" stroke-width="4"/>
+  <text x="450" y="370" text-anchor="middle" font-size="30" font-weight="700" fill="#1f1d1a">STOCK COUNT · FREE: 1</text>
+  <text x="450" y="415" text-anchor="middle" font-size="26" fill="#1f1d1a">one request at a time</text>
+  <line x1="450" y1="465" x2="450" y2="540" stroke="#1f1d1a" stroke-width="4" marker-end="url(#a)"/>
+  <rect x="60" y="555" width="780" height="160" rx="16" fill="#ffffff" stroke="#1f7a75" stroke-width="5"/>
+  <text x="95" y="610" font-size="26" fill="#6b655c">1ST</text>
+  <text x="170" y="610" font-size="30" font-weight="700" fill="#1f7a75">A: 1 free → 0</text>
+  <text x="170" y="665" font-size="30" fill="#1f1d1a">✓ Order confirmed</text>
+  <rect x="60" y="740" width="780" height="160" rx="16" fill="#ffffff" stroke="#c4432a" stroke-width="5" stroke-dasharray="14 10"/>
+  <text x="95" y="795" font-size="26" fill="#6b655c">2ND</text>
+  <text x="170" y="795" font-size="30" font-weight="700" fill="#c4432a">B: 0 free → stop</text>
+  <text x="170" y="850" font-size="30" fill="#1f1d1a">✗ Sold out</text>
+</svg>

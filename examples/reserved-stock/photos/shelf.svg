@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" role="img" aria-labelledby="t d" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title id="t">The page and the shelf disagree</title>
+  <desc id="d">A product page says "Only 3 left". The warehouse shelf below holds ten identical items.</desc>
+  <rect x="150" y="60" width="600" height="380" rx="28" fill="#ffffff" stroke="#1f1d1a" stroke-width="4"/>
+  <text x="450" y="125" text-anchor="middle" font-size="26" fill="#6b655c">PRODUCT PAGE</text>
+  <rect x="210" y="155" width="480" height="4" fill="#e4ddd0"/>
+  <text x="450" y="260" text-anchor="middle" font-size="76" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#c4432a">Only 3 left</text>
+  <rect x="270" y="320" width="360" height="74" rx="37" fill="#1f1d1a"/>
+  <text x="450" y="367" text-anchor="middle" font-size="28" fill="#ffffff">Add to cart</text>
+  <text x="450" y="540" text-anchor="middle" font-size="96" font-family="Georgia, 'Times New Roman', serif" fill="#1f1d1a">≠</text>
+  <text x="90" y="640" font-size="30" fill="#1f1d1a" font-weight="700">WAREHOUSE SHELF: 10</text>
+  <g fill="#ffffff" stroke="#1f1d1a" stroke-width="4">
+    <rect x="90" y="670" width="120" height="110" rx="10"/><rect x="240" y="670" width="120" height="110" rx="10"/><rect x="390" y="670" width="120" height="110" rx="10"/><rect x="540" y="670" width="120" height="110" rx="10"/><rect x="690" y="670" width="120" height="110" rx="10"/>
+    <rect x="90" y="810" width="120" height="110" rx="10"/><rect x="240" y="810" width="120" height="110" rx="10"/><rect x="390" y="810" width="120" height="110" rx="10"/><rect x="540" y="810" width="120" height="110" rx="10"/><rect x="690" y="810" width="120" height="110" rx="10"/>
+  </g>
+  <rect x="60" y="935" width="780" height="8" rx="4" fill="#1f1d1a"/>
+</svg>

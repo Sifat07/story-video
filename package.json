@@ -1,0 +1,12 @@
+{
+  "name": "story-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent skill: explain a topic as writing, a diagram, an interactive page and a narrated vertical video.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

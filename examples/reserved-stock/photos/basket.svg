@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" role="img" aria-labelledby="t d" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title id="t">In the shop, but promised</title>
+  <desc id="d">Inside one shop, three items on the shelf are free for you to buy. One item in another shopper's basket is still in the shop, but it is promised to that shopper.</desc>
+  <rect x="60" y="60" width="780" height="880" rx="24" fill="none" stroke="#6b655c" stroke-width="3" stroke-dasharray="16 12"/>
+  <text x="100" y="120" font-size="28" fill="#6b655c">THE SHOP</text>
+  <text x="450" y="210" text-anchor="middle" font-size="30" font-weight="700" fill="#1f1d1a">ON THE SHELF</text>
+  <g fill="#ffffff" stroke="#c4432a" stroke-width="5">
+    <rect x="172" y="240" width="140" height="130" rx="12"/><rect x="382" y="240" width="140" height="130" rx="12"/><rect x="592" y="240" width="140" height="130" rx="12"/>
+  </g>
+  <g font-size="26" font-weight="700" fill="#c4432a" text-anchor="middle"><text x="242" y="314">free</text><text x="452" y="314">free</text><text x="662" y="314">free</text></g>
+  <rect x="140" y="390" width="620" height="8" rx="4" fill="#1f1d1a"/>
+  <text x="450" y="450" text-anchor="middle" font-size="26" fill="#1f1d1a">for sale to you</text>
+  <text x="450" y="580" text-anchor="middle" font-size="30" font-weight="700" fill="#1f1d1a">IN ANOTHER SHOPPER'S BASKET</text>
+  <rect x="370" y="615" width="160" height="130" rx="12" fill="#2a2724"/>
+  <text x="450" y="690" text-anchor="middle" font-size="24" fill="#ffffff">promised</text>
+  <path d="M250 700 L650 700 L610 870 L290 870 Z" fill="none" stroke="#1f1d1a" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M300 700 Q450 560 600 700" fill="none" stroke="#1f1d1a" stroke-width="6"/>
+  <text x="450" y="915" text-anchor="middle" font-size="26" fill="#1f1d1a">not for sale to you</text>
+</svg>
