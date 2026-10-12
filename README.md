@@ -1,8 +1,13 @@
 # story-video
 
-An agent skill that explains a topic four ways: **plain writing → one diagram → an interactive page → a narrated vertical video** (1080×1920, 30 fps). The video is rendered from a short `scenes.json`: each scene is voiced, timed to its narration, drawn frame by frame in a headless browser (diagrams build up part by part with the narration) and encoded with ffmpeg.
+An agent skill that explains a topic four ways: **plain writing → one diagram → an interactive page → a narrated video** (vertical 1080×1920 or landscape 1920×1080, 30 fps). The video is rendered from a short `scenes.json`: each scene is voiced, timed to its narration, drawn frame by frame in a headless browser and encoded with ffmpeg. Diagram parts appear on the word that names them (`data-at="five paid"`), and captions come from the same word timings.
 
-![Poster frame from the example](examples/reserved-stock/poster.jpg)
+<p>
+  <img src="examples/reserved-stock/preview.gif" width="300" alt="The example's diagram building up in step with the narration, with captions">
+  <img src="examples/reserved-stock/poster.jpg" width="300" alt="Poster frame of the example">
+</p>
+
+The full example (84 s, with voice and music) is in [`examples/reserved-stock`](examples/reserved-stock): run the build to get the mp4.
 
 ## Install
 
@@ -24,17 +29,18 @@ VOICE=say node ~/.claude/skills/story-video/build.mjs path/to/project   # free d
 node ~/.claude/skills/story-video/build.mjs path/to/project             # final
 ```
 
-`path/to/project` holds `scenes.json` and `photos/`. Output lands in `path/to/project/out/`: `<project>.mp4`, `poster.jpg`, `sheet.jpg` (a contact sheet for checking every scene) and `storyboard.md`, plus intermediate audio files. `out/` is rebuilt on every run. See `SKILL.md` for every `scenes.json` field, and `examples/` for a complete project.
+`path/to/project` holds `scenes.json` and `photos/`. Output lands in `path/to/project/out/`: `<project>.mp4`, `<project>.srt`, `poster.jpg`, `sheet.jpg` (a contact sheet for checking every scene) and `storyboard.md`, plus intermediate audio files. `out/` is rebuilt on every run; frames render in four browser pages at once (about a minute for a 80 s video on a laptop). Set `"format": "landscape"` for 16:9 and `"captions": true` to burn captions in. See `SKILL.md` for every `scenes.json` field, and `examples/` for a complete project.
 
 ## Voice and cost
 
 | Voice | When | Cost |
 | --- | --- | --- |
-| macOS `say` | No key, or `VOICE=say` | Free. macOS only |
-| ElevenLabs | `ELEVENLABS_API_KEY` in the environment or `~/.elevenlabs.env` | Text-to-speech is billed **every build** (all scenes are re-voiced) |
-| ElevenLabs Music | Key set and `scenes.json` has `music` | Billed once; saved as `music.mp3` and reused |
+| macOS `say` | No key on macOS, or `VOICE=say` | Free |
+| espeak-ng | No key elsewhere (`apt install espeak-ng`), or `VOICE=espeak` | Free, robotic; fine for drafts |
+| ElevenLabs | `ELEVENLABS_API_KEY` in the environment or `~/.elevenlabs.env` | Billed per new line. Lines are cached in `<project>/.voice-cache/`, so rebuilds re-bill only changed text |
+| ElevenLabs Music | Key set and `scenes.json` has `music` | Billed once; saved as `music.mp3` and reused (looped if the cut grows) |
 
-On Linux or Windows without a key, the build stops with a message: there is no free voice there yet. The key is read, never printed.
+Free voices estimate word timings; ElevenLabs returns exact ones. The key is read, never printed.
 
 ## Credits
 

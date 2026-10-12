@@ -1,5 +1,7 @@
 {
   "theme": "light",
+  "captions": true,
+  "speed": 0.8,
   "music": "Instrumental, warm and curious, light piano and pizzicato strings. No vocals. Sits under narration.",
   "scenes": [
     {
@@ -21,6 +23,7 @@
       "kicker": "What you already know",
       "title": "Promised, not <em>free</em>",
       "sub": "In the shop, but not for sale to you.",
+      "speed": 0.7,
       "photos": [
         "basket.svg"
       ],

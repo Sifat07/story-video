@@ -9,7 +9,7 @@ description: Use when the user wants a topic explained or taught (an explainer, 
 
 Understanding climbs a ladder of four forms: **plain writing → one diagram → an interactive page → a narrated video**. Each form is built from the one below and must make the idea clearer, not prettier. Show a concrete case first, name it second. If a detail is missing, decide and continue.
 
-Everything for one piece lives in a project folder (any path): `explanation.md`, `diagram.svg`, `page.html`, `scenes.json`, `photos/`, optional `logo.png` and `music.mp3`, and the build output in `out/`. `<skill>` below means this skill's folder.
+Everything for one piece lives in a project folder (any path; create it): `explanation.md`, `diagram.svg`, `page.html`, `scenes.json`, `photos/`, optional `logo.png` and `music.mp3`, and the build output in `out/`. `<skill>` below means this skill's folder.
 
 **Pick a mode**
 - **Explain** (default for "explain / teach X"): all four forms.
@@ -32,12 +32,13 @@ Choose the shape that fits the idea (flow, states, system map, timeline, compari
 
 The same SVG feeds the page and the video, so: transparent background, at least 5% margin inside the `viewBox`, `id`s on anything the page changes, real `<text>`, plus `<title>` and `<desc>`.
 
-**Motion (video):** the video inlines SVGs, so tagged parts build up in step with the narration. Times are seconds from the scene start:
-- `data-in="2.4"`: fades in (rising slightly) at 2.4 s. Put it on a `<g>` to move a group.
+**Motion (video):** the video inlines SVGs, so tagged parts build up in step with the narration:
+- `data-at="five paid"`: fades in (rising slightly) when the scene's narration says that phrase. One word or several, matched against that scene's narration ignoring case and punctuation; use one that occurs once in the scene. A missing phrase stops the build. Add `data-in="0.3"` to delay it by 0.3 s. Put it on a `<g>` to move a group.
+- `data-in="2.4"` alone: fades in at 2.4 s from the scene start (for parts no word introduces, like a heading at 0.6).
 - `data-out="6"`: fades out at 6 s.
-- `class="draw"` on a `path`, `line`, `polyline`, `rect` or `circle`: the stroke traces itself from `data-in` over `data-dur` (default 0.8 s). Arrowheads fade in with it.
+- `class="draw"` on a `path`, `line`, `polyline`, `rect` or `circle`: the stroke traces itself from its `data-at` (or `data-in`) time over `data-dur` (default 0.8 s). Arrowheads fade in with it.
 
-Time each part to the word that introduces it: draft once, read the scene's start and narration length in `out/storyboard.md`, place times by word position, re-render. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
+Word times are exact with ElevenLabs and estimated with the free voices, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
 
 **Check:** after one glance, a viewer can say the main relationship out loud.
 
@@ -49,13 +50,15 @@ One self-contained responsive file: semantic HTML, visible focus, respects `pref
 
 ## 4. Video → `out/<folder>.mp4`
 
-An explainer runs 60–90 s: about 140–200 spoken words over 5–7 scenes. Reels can be shorter. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap. Diagram parts build up with the narration (see Motion); page states become before/after scenes. Narration at 125–145 words per minute, one idea per sentence; the screen supports the voice rather than repeating it word for word.
+An explainer runs 60–90 s: about 140–200 spoken words over 5–7 scenes. Reels can be shorter. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap. Diagram parts build up with the narration (see Motion); page states become before/after scenes. Narration at 130–165 words per minute (pauses included), one idea per sentence; the screen supports the voice rather than repeating it word for word.
+
+Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
 **Steps**
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
-2. Draft for free: `VOICE=say node <skill>/build.mjs <project>`. `say` pacing is rough; `SAY_RATE` (default 120) and `SAY_VOICE` (default Daniel) tune it, and `out/storyboard.md` shows each scene's wpm.
-3. Review `out/sheet.jpg` (per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
-4. Final: the same command without `VOICE=say`. Fix any scene it reports outside 125–145 wpm and rebuild.
+2. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
+3. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
+4. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside 130–165 wpm: set `speed` (whole video or that scene) and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
 
 ### scenes.json
 
@@ -73,7 +76,10 @@ An explainer runs 60–90 s: about 140–200 spoken words over 5–7 scenes. Ree
 
 | Field | Meaning |
 | --- | --- |
-| `theme` | `"light"` (paper, charcoal, coral) for explainers. Omit for dark |
+| `theme` | `"light"` (cream paper, charcoal, coral accent, teal kicker) for explainers. Omit for dark |
+| `format` | `"portrait"` (default, 1080×1920) or `"landscape"` (1920×1080) |
+| `captions` | `true` burns captions into the video. The `.srt` is written either way |
+| `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene |
 | `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim` |
 | `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3` |
 | `pronounce` | Respellings for the voice, e.g. `{ "Peña": "Penya" }` |
@@ -87,12 +93,12 @@ An explainer runs 60–90 s: about 140–200 spoken words over 5–7 scenes. Ree
 | `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
 | `bleed: true` | Image fills the frame behind a scrim |
 | `logo: true` | Show `logo.png` from the project folder above the text |
-| `poster: true` | This scene's settled frame becomes `out/poster.jpg` and frame 0 (the thumbnail). Default: last scene |
+| `poster: true` | This scene's settled frame becomes `out/poster.jpg` and frame 0 (the thumbnail). Default: last scene. Pick a scene with an image |
 | `year` | Draws a timeline across the scenes' years. Omit for no timeline |
 
-**Layout:** with an image, a card fills the upper half and the text sits below it; without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image.
+**Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
 
-**Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors })` (scenes carry `start` and `dur` in seconds; `base` is the project folder URL; may be async) and `window.render(t)`, which draws the frame at `t` seconds as a pure function of time.
+**Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors, format, cues })` (scenes carry `start` and `dur` in seconds; `base` is the project folder URL; `cues` is `[{ t0, t1, text }]`, empty unless captions are on; may be async) and `window.render(t, { poster })`, which draws the frame at `t` seconds as a pure function of time (`poster` is true for the thumbnail: leave captions out).
 
 ## Look
 
@@ -102,11 +108,12 @@ Explainers: a light editorial page: cream paper, charcoal ink, one coral accent,
 
 Check each form alone: the text alone, the diagram alone, the page with motion off, the video muted. All four must leave the same correct picture in the viewer's head. List every mismatch and fix it.
 
-**Deliver:** explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4 and `out/poster.jpg`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
+**Deliver:** explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4, `out/poster.jpg` and the `.srt`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
 
 ## Common mistakes
 
-- **Paying for every draft:** each build wipes `out/` and re-voices every scene. Draft with `VOICE=say` (macOS), use ElevenLabs once at the end.
-- **Overwriting a good render:** copy `out/<folder>.mp4` aside before rebuilding.
-- **Music too short after edits:** delete `music.mp3` to regenerate at the new length (paid).
+- **Paying for drafts:** draft with a free voice. The cache saves unchanged lines, but every new wording of a line is billed.
+- **Overwriting a good render:** each build wipes `out/`; copy `out/<folder>.mp4` aside first.
+- **Music shorter than the cut:** it loops, which can be audible. Delete `music.mp3` to regenerate at the new length (paid).
+- **Motion off after a rewrite:** `data-at` follows the words, `data-in` times do not. Prefer `data-at`; a build that stops on a missing phrase means the narration changed.
 - **Guessed facts:** check claims against the source (code, docs, records) and cite them in `explanation.md`.

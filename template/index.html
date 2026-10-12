@@ -11,7 +11,7 @@
   /* "theme": "light": paper, charcoal, coral accent, teal kicker. */
   body.light { --bg:#f6f1e7; --ink:#26231f; --muted:#6b645a; --kicker:#2f7f7a; --accent:#d0644a; --line:#d9d0bf; --scrim:rgba(246,241,231,.85); }
   * { margin:0; box-sizing:border-box; }
-  html, body { width:1080px; height:1920px; background:var(--bg); overflow:hidden; color:var(--ink); }
+  html, body { width:100vw; height:100vh; background:var(--bg); overflow:hidden; color:var(--ink); }
   #stage { position:absolute; inset:0; padding:0 96px; display:flex; flex-direction:column; justify-content:center; }
   .line { will-change:transform,opacity; }
   #kicker { font:500 34px/1 "Geist Mono", monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--kicker); margin-bottom:56px; }
@@ -35,6 +35,24 @@
   body.card #kicker { margin-bottom:36px; }
   body.card #title { font-size:108px; }
   body.card #sub { margin-top:36px; }
+  /* Captions: one short cue at a time, above the reel UI band. */
+  #cap { position:absolute; left:64px; right:64px; bottom:260px; text-align:center; display:none; }
+  #cap span { font:500 44px/1.35 "Work Sans", sans-serif; color:var(--bg); background:var(--ink); padding:6px 18px; border-radius:8px; }
+  body.captions.card #stage { padding-bottom:400px; }
+  body.captions #rail { bottom:180px; }
+  /* "format": "landscape" (1920x1080): card on the right, text on the left. */
+  body.landscape #stage { padding:0 140px; }
+  body.landscape #title { font-size:120px; }
+  body.landscape #logo { width:360px; height:360px; margin-bottom:48px; }
+  body.landscape .photo { left:auto; right:96px; top:96px; bottom:96px; width:800px; height:auto; }
+  body.landscape .photo.bleed { inset:0; width:auto; }
+  body.landscape.card #stage { justify-content:center; padding:0 1000px 0 120px; }
+  body.landscape.card #title { font-size:92px; }
+  body.landscape #rail { left:120px; right:120px; bottom:110px; }
+  body.landscape.card #rail { right:1000px; }
+  body.landscape #cap { bottom:48px; }
+  body.landscape.captions .photo:not(.bleed) { bottom:150px; }
+  body.landscape.captions #rail { bottom:200px; }
   #grain { position:absolute; inset:0; pointer-events:none; opacity:.06;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E"); }
 </style>
@@ -48,16 +66,20 @@
   <p id="sub" class="line"></p>
 </div>
 <div id="rail"><div id="dot"></div></div>
+<div id="cap"><span></span></div>
 <div id="grain"></div>
 <script>
   const ease = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
-  let scenes = [], current = -1, hasLogo = false, Y0 = 0, Y1 = 1;
+  let scenes = [], cues = [], current = -1, hasLogo = false, Y0 = 0, Y1 = 1;
   const yearX = y => (y - Y0) / (Y1 - Y0) * 100;
 
-  // cfg: { scenes (with start, dur in seconds), base (project dir URL), theme, colors }, set by build.mjs.
-  window.setup = async ({ scenes: s, base, theme, colors }) => {
-    scenes = s;
+  // cfg: { scenes (with start, dur in seconds), base (project dir URL), theme, colors,
+  // format ("portrait" | "landscape"), cues ([{ t0, t1, text }], empty unless captions are on) }, set by build.mjs.
+  window.setup = async ({ scenes: s, base, theme, colors, format, cues: c = [] }) => {
+    scenes = s; cues = c;
     if (theme) document.body.classList.add(theme);
+    if (format === 'landscape') document.body.classList.add('landscape');
+    if (cues.length) document.body.classList.add('captions');
     for (const [k, v] of Object.entries(colors || {})) document.documentElement.style.setProperty('--' + k, v);
     // Logo: optional logo.png in the project folder.
     if (scenes.some(sc => sc.logo)) {
@@ -101,7 +123,8 @@
     return true;
   };
 
-  window.render = t => {
+  // opts.poster: the thumbnail frame, drawn without captions.
+  window.render = (t, opts = {}) => {
     const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
     const s = scenes[i], lt = t - s.start;
     if (i !== current) {
@@ -149,6 +172,9 @@
     }
     const c = title.querySelector('[data-count]');
     if (c) c.textContent = Math.round(+c.dataset.count * ease((lt - 0.3) / 1.6));
+    const cue = !opts.poster && cues.find(q => t >= q.t0 && t < q.t1);
+    cap.style.display = cue ? 'block' : 'none';
+    if (cue) cap.firstChild.textContent = cue.text;
     // Dot glides from the previous scene's year to this one's.
     if (Number.isFinite(s.year)) {
       const prev = scenes[i - 1]?.year ?? s.year;

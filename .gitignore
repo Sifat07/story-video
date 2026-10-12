@@ -1,4 +1,5 @@
 node_modules/
 out/
 music.mp3
+.voice-cache/
 .DS_Store
