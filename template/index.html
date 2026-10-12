@@ -36,8 +36,11 @@
   body.card #title { font-size:108px; }
   body.card #sub { margin-top:36px; }
   /* Captions: one short cue at a time, above the reel UI band. */
+  /* The word being spoken is lit in the accent colour. */
   #cap { position:absolute; left:64px; right:64px; bottom:260px; text-align:center; display:none; }
-  #cap span { font:500 44px/1.35 "Work Sans", sans-serif; color:var(--bg); background:var(--ink); padding:6px 18px; border-radius:8px; }
+  #cap > span { font:600 48px/1.35 "Work Sans", sans-serif; color:var(--ink); background:var(--scrim); padding:8px 22px; border-radius:10px; }
+  #cap b { font-weight:inherit; }
+  #cap .on { color:var(--accent); }
   body.captions.card #stage { padding-bottom:400px; }
   body.captions #rail { bottom:180px; }
   /* "format": "landscape" (1920x1080): card on the right, text on the left. */
@@ -53,6 +56,13 @@
   body.landscape #cap { bottom:48px; }
   body.landscape.captions .photo:not(.bleed) { bottom:150px; }
   body.landscape.captions #rail { bottom:200px; }
+  /* "type": "big": one huge centred line, for hooks and numbers. */
+  body.big #stage { align-items:center; text-align:center; padding:0 64px; }
+  body.big #title { font-size:230px; line-height:.95; }
+  body.big #sub { margin-top:48px; }
+  body.big.landscape #title { font-size:200px; }
+  /* Title / sub parts with data-at pop in on their word. */
+  #stage [data-in] { display:inline-block; }
   #grain { position:absolute; inset:0; pointer-events:none; opacity:.06;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E"); }
 </style>
@@ -66,15 +76,17 @@
   <p id="sub" class="line"></p>
 </div>
 <div id="rail"><div id="dot"></div></div>
-<div id="cap"><span></span></div>
+<div id="cap"></div>
 <div id="grain"></div>
 <script>
   const ease = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+  const lerp = (a, b, p) => a + (b - a) * p;
   let scenes = [], cues = [], current = -1, hasLogo = false, Y0 = 0, Y1 = 1;
   const yearX = y => (y - Y0) / (Y1 - Y0) * 100;
 
-  // cfg: { scenes (with start, dur in seconds), base (project dir URL), theme, colors,
-  // format ("portrait" | "landscape"), cues ([{ t0, t1, text }], empty unless captions are on) }, set by build.mjs.
+  // cfg: { scenes (with start, dur in seconds, transition "fade" | "cut"), base (project dir URL),
+  // theme, colors, format ("portrait" | "landscape"),
+  // cues ([{ t0, t1, text, words: [{ w, t }] }], empty unless captions are on) }, set by build.mjs.
   window.setup = async ({ scenes: s, base, theme, colors, format, cues: c = [] }) => {
     scenes = s; cues = c;
     if (theme) document.body.classList.add(theme);
@@ -105,7 +117,7 @@
       sc.el.className = 'photo ' + (sc.fit === 'contain' ? 'contain' : sc.bleed ? 'bleed' : '');
       for (const f of sc.photos) {
         if (sc.svgs?.[f]) {
-          // Inline SVG: parts with data-in / data-out / class="draw" animate (see render).
+          // Inline SVG: parts with data-in / data-out / class="draw" / data-focus animate (see render).
           const box = document.createElement('div');
           box.className = 'svg'; box.innerHTML = sc.svgs[f];
           box.querySelector('svg').setAttribute('preserveAspectRatio', sc.fit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice');
@@ -118,38 +130,80 @@
         await img.decode();
       }
       photos.append(sc.el);
+      // Camera keyframes: each data-focus part, as a fraction of its box, measured while visible.
+      document.body.classList.toggle('card', !sc.bleed);
+      sc.el.style.display = 'block';
+      for (const box of sc.el.querySelectorAll('.svg')) {
+        const r0 = box.getBoundingClientRect();
+        box.focus = [...box.querySelectorAll('[data-focus]')].map(el => {
+          const r = el.getBoundingClientRect();
+          return { t: +(el.dataset.in ?? 0), z: +el.dataset.focus || 1.7,
+            x: (r.left + r.width / 2 - r0.left) / r0.width, y: (r.top + r.height / 2 - r0.top) / r0.height };
+        }).sort((a, b) => a.t - b.t);
+      }
+      sc.el.style.display = 'none';
     }
+    document.body.classList.remove('card');
     await document.fonts.ready;
     return true;
   };
 
+  // Where the camera is at lt: eases from one focus to the next over 0.7 s (z 1 = whole diagram).
+  function camera(keys, lt) {
+    let c = { z: 1, x: .5, y: .5 };
+    for (const k of keys) {
+      const p = ease((lt - k.t) / 0.7);
+      if (p <= 0) break;
+      const to = k.z === 1 ? { z: 1, x: .5, y: .5 } : k;
+      c = { z: lerp(c.z, to.z, p), x: lerp(c.x, to.x, p), y: lerp(c.y, to.y, p) };
+    }
+    return c;
+  }
+
   // opts.poster: the thumbnail frame, drawn without captions.
   window.render = (t, opts = {}) => {
     const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
-    const s = scenes[i], lt = t - s.start;
+    const s = scenes[i], lt = t - s.start, cut = s.transition === 'cut';
     if (i !== current) {
       current = i;
-      kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.textContent = s.sub || '';
+      kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.innerHTML = s.sub || '';
       logo.style.display = s.logo && hasLogo ? 'block' : 'none';
       scenes.forEach(o => o.el && (o.el.style.display = o === s ? 'block' : 'none'));
       document.body.classList.toggle('card', !!s.photos && !s.bleed);
+      document.body.classList.toggle('big', s.type === 'big');
     }
-    // Lines rise in one after another; everything fades out in the last 0.35 s (except the final scene).
+    // Lines rise in one after another. "fade": slow rise, fade out in the last 0.35 s.
+    // "cut": quick snap in, no fade out (the next scene cuts in hard). The final scene never fades.
     const lines = [...document.querySelectorAll('#stage .line')].filter(el => el.offsetParent);
-    const out = i === scenes.length - 1 ? 1 : 1 - ease((lt - (s.dur - 0.35)) / 0.35);
+    const out = i === scenes.length - 1 || cut ? 1 : 1 - ease((lt - (s.dur - 0.35)) / 0.35);
     lines.forEach((el, k) => {
-      const p = ease((lt - 0.15 - k * 0.22) / 0.6);
+      const p = cut ? ease((lt - k * 0.08) / 0.25) : ease((lt - 0.15 - k * 0.22) / 0.6);
       el.style.opacity = p * out;
-      el.style.transform = `translateY(${(1 - p) * 40}px)`;
+      el.style.transform = `translateY(${(1 - p) * (cut ? 60 : 40)}px)`;
+    });
+    // Title/sub parts with data-at (resolved to data-in) pop in on their word.
+    document.querySelectorAll('#stage [data-in]').forEach(el => {
+      const p = ease((lt - +el.dataset.in) / 0.22);
+      el.style.opacity = p;
+      el.style.transform = `scale(${0.8 + 0.2 * p})`;
     });
     if (s.el) {
-      // Card fades with the text; slow push-in; several images crossfade in equal slices.
-      s.el.style.opacity = ease(lt / 0.5) * out;
+      // Card fades with the text (cut: instant); push-in; several images crossfade in equal slices.
+      s.el.style.opacity = (cut ? 1 : ease(lt / 0.5)) * out;
       const imgs = [...s.el.children], slice = s.dur / imgs.length;
       imgs.forEach((img, k) => {
         img.style.opacity = k === 0 ? 1 : ease((lt - k * slice) / 0.5);
-        // Animated diagrams barely push in; the parts carry the motion.
-        img.style.transform = `scale(${img.classList.contains('svg') ? 1 + 0.02 * lt / s.dur : 1.03 + 0.07 * lt / s.dur})`;
+        if (img.focus?.length) {
+          // Camera: zoom and pan to the part being spoken about, kept inside the box.
+          const c = camera(img.focus, lt), W = img.offsetWidth, H = img.offsetHeight;
+          const tx = Math.min(0, Math.max(W - c.z * W, W / 2 - c.z * c.x * W));
+          const ty = Math.min(0, Math.max(H - c.z * H, H / 2 - c.z * c.y * H));
+          img.style.transformOrigin = '0 0';
+          img.style.transform = `translate(${tx}px, ${ty}px) scale(${c.z})`;
+        } else {
+          // Animated diagrams barely push in; the parts carry the motion.
+          img.style.transform = `scale(${img.classList.contains('svg') ? 1 + 0.02 * lt / s.dur : 1.03 + 0.09 * lt / s.dur})`;
+        }
       });
       // Diagram motion, times in seconds from scene start: data-in fades a part in (rising 12px),
       // data-out fades it out, class="draw" traces a stroke over data-dur (default 0.8 s).
@@ -170,11 +224,16 @@
         }
       });
     }
+    // Count-up: from the number's own data-in (or 0.3 s) over 1.6 s.
     const c = title.querySelector('[data-count]');
-    if (c) c.textContent = Math.round(+c.dataset.count * ease((lt - 0.3) / 1.6));
+    if (c) c.textContent = Math.round(+c.dataset.count * ease((lt - +(c.dataset.in ?? 0.3)) / 1.6)).toLocaleString('en');
+    // Captions: the current cue, with the word being spoken lit.
     const cue = !opts.poster && cues.find(q => t >= q.t0 && t < q.t1);
     cap.style.display = cue ? 'block' : 'none';
-    if (cue) cap.firstChild.textContent = cue.text;
+    if (cue) {
+      const now = cue.words.findLastIndex(w => w.t <= t);
+      cap.innerHTML = '<span>' + cue.words.map((w, k) => `<b class="${k === now ? 'on' : ''}">${w.w.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>`).join(' ') + '</span>';
+    }
     // Dot glides from the previous scene's year to this one's.
     if (Number.isFinite(s.year)) {
       const prev = scenes[i - 1]?.year ?? s.year;

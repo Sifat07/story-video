@@ -19,8 +19,11 @@ const FPS = 30, LEAD = 0.25, TAIL = 0.45, END_HOLD = 1.6;
 const FORMATS = { portrait: [1080, 1920], landscape: [1920, 1080] };
 // ElevenLabs "George" (stock voice). Override with ELEVENLABS_VOICE_ID.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb", MODEL = "eleven_multilingual_v2";
-const { music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, scenes } =
-  JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
+const { music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, mode = "explainer",
+  transition, scenes } = JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
+// mode "reel": faster pace and hard cuts by default; "explainer": calmer pace and fades.
+const [WPM_LO, WPM_HI] = mode === "reel" ? [150, 185] : [130, 165];
+for (const s of scenes) s.transition ??= transition ?? (mode === "reel" ? "cut" : "fade");
 if (!FORMATS[format]) throw new Error(`format must be one of: ${Object.keys(FORMATS).join(", ")}`);
 const [W, H] = FORMATS[format];
 
@@ -110,9 +113,9 @@ const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --
 for (const [i, s] of scenes.entries()) {
   const raw = join(out, `vo-${i}.wav`), padded = join(out, `seg-${i}.wav`);
   Object.assign(s, await voice(s.vo, raw, s.speed ?? speed));
-  // Target 130-165 words per minute (pauses included). Only the final voice is judged.
+  // Target words per minute (pauses included) by mode. Only the final voice is judged.
   const wpm = Math.round(s.words.length / s.d * 60);
-  if (ENGINE === "elevenlabs" && (wpm < 130 || wpm > 165)) console.log(`wpm: scene ${s.id} at ${wpm}`);
+  if (ENGINE === "elevenlabs" && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
   const shown = [s.kicker, s.title?.replace(/<[^>]+>/g, ""), s.sub].filter(Boolean).join(" / ");
   board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
   s.start = start;
@@ -128,7 +131,7 @@ writeFileSync(join(out, "concat.txt"), parts.map(p => `file '${p}'`).join("\n"))
 ff("-f", "concat", "-safe", "0", "-i", join(out, "concat.txt"), join(out, "narration.wav"));
 console.log(`length: ${total.toFixed(1)} s`);
 
-// 1b. Captions: one cue per clause (split at punctuation); a clause over 42 characters
+// 1b. Captions: one cue per clause (split at punctuation); a clause over 34 characters
 // (one line) splits into even parts. Always written as an .srt to upload; burned into
 // the frames when scenes.json has "captions": true.
 const cues = [];
@@ -138,10 +141,10 @@ for (const s of scenes) {
   s.words.forEach((x, k) => { clauses.at(-1).push(x); if (/[.!?;:,]$/.test(x.w) && k < s.words.length - 1) clauses.push([]); });
   // A tiny clause ("Online,") joins the next one when both fit on one line.
   for (let k = clauses.length - 2; k >= 0; k--)
-    if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= 42)
+    if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= 34)
       clauses.splice(k, 2, [...clauses[k], ...clauses[k + 1]]);
   const parts = clauses.flatMap(c => {
-    const n = Math.ceil(line(c).length / 42), target = line(c).length / n, out = [[]];
+    const n = Math.ceil(line(c).length / 34), target = line(c).length / n, out = [[]];
     for (const x of c) {
       if (out.at(-1).length && out.length < n && line([...out.at(-1), x]).length > target + 4) out.push([]);
       out.at(-1).push(x);
@@ -149,7 +152,8 @@ for (const s of scenes) {
     return out;
   });
   parts.forEach((p, k) => cues.push({
-    t0: s.start + LEAD + p[0].t, t1: s.start + LEAD + (parts[k + 1]?.[0].t ?? s.d), text: line(p) }));
+    t0: s.start + LEAD + p[0].t, t1: s.start + LEAD + (parts[k + 1]?.[0].t ?? s.d), text: line(p),
+    words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t })) }));
 }
 const srtTime = t => new Date(t * 1000).toISOString().slice(11, 23).replace(".", ",");
 writeFileSync(join(out, `${basename(here)}.srt`),
@@ -183,8 +187,8 @@ if (existsSync(music)) {
 // index.html replaces the template (same setup/render contract).
 const html = existsSync(join(here, "index.html")) ? join(here, "index.html") : join(skill, "template/index.html");
 
-// SVGs are inlined (file:// pages can't fetch) so their parts can animate. data-at="phrase"
-// becomes data-in = when that phrase is spoken (+ data-in, if also set, as a delay).
+// SVGs are inlined (file:// pages can't fetch) so their parts can animate. data-at="phrase", in an
+// SVG or in title/sub HTML, becomes data-in = when that phrase is spoken (+ data-in, if set, as a delay).
 const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 function spokenAt(s, phrase) {
   const ws = s.words.map(x => norm(x.w));
@@ -195,13 +199,17 @@ function spokenAt(s, phrase) {
   }
   throw new Error(`scene ${s.id}: data-at "${phrase}" is not in its narration`);
 }
-for (const s of scenes)
-  s.svgs = Object.fromEntries((s.photos || []).filter(f => f.endsWith(".svg")).map(f => [f,
-    readFileSync(join(here, "photos", f), "utf8").replace(/<[^>]*\sdata-at="[^"]*"[^>]*>/g, tag => {
-      const at = tag.match(/\sdata-at="([^"]*)"/)[1], delay = +(tag.match(/\sdata-in="([^"]*)"/)?.[1] ?? 0);
-      const t = (spokenAt(s, at) + delay).toFixed(2);
-      return tag.replace(/\sdata-in="[^"]*"/, "").replace(/\sdata-at="[^"]*"/, ` data-in="${t}"`);
-    })]));
+const resolveAt = (s, html) => html.replace(/<[^>]*\sdata-at="[^"]*"[^>]*>/g, tag => {
+  const at = tag.match(/\sdata-at="([^"]*)"/)[1], delay = +(tag.match(/\sdata-in="([^"]*)"/)?.[1] ?? 0);
+  const t = (spokenAt(s, at) + delay).toFixed(2);
+  return tag.replace(/\sdata-in="[^"]*"/, "").replace(/\sdata-at="[^"]*"/, ` data-in="${t}"`);
+});
+for (const s of scenes) {
+  if (s.title) s.title = resolveAt(s, s.title);
+  if (s.sub) s.sub = resolveAt(s, s.sub);
+  s.svgs = Object.fromEntries((s.photos || []).filter(f => f.endsWith(".svg"))
+    .map(f => [f, resolveAt(s, readFileSync(join(here, "photos", f), "utf8"))]));
+}
 
 const frames = Math.ceil(total * FPS);
 const frameFile = f => join(out, "frames", `${String(Math.min(frames - 1, f)).padStart(5, "0")}.jpg`);

@@ -1,6 +1,6 @@
 ---
 name: story-video
-description: Use when the user wants a topic explained or taught (an explainer, "help me understand X", a learning page), or wants a narrated vertical video, reel, story or short (9:16, 1080x1920) about a project, event, history or milestone.
+description: Use when the user wants a topic explained or taught (an explainer, "help me understand X", a learning page), or wants a narrated video, reel, story or short (9:16 or 16:9) about a project, event, history, milestone or how something works.
 ---
 
 # story-video
@@ -36,6 +36,7 @@ The same SVG feeds the page and the video, so: transparent background, at least 
 - `data-at="five paid"`: fades in (rising slightly) when the scene's narration says that phrase. One word or several, matched against that scene's narration ignoring case and punctuation; use one that occurs once in the scene. A missing phrase stops the build. Add `data-in="0.3"` to delay it by 0.3 s. Put it on a `<g>` to move a group.
 - `data-in="2.4"` alone: fades in at 2.4 s from the scene start (for parts no word introduces, like a heading at 0.6).
 - `data-out="6"`: fades out at 6 s.
+- `data-focus="1.4"` (with `data-at`): the camera zooms to that part (1.4×) and pans to it when its phrase is spoken, then moves on to the next focus. `data-focus="1"` pulls back to the whole diagram. Fit the zoomed part inside the frame: at 1.4× a part may be at most ~70% of the diagram's width.
 - `class="draw"` on a `path`, `line`, `polyline`, `rect` or `circle`: the stroke traces itself from its `data-at` (or `data-in`) time over `data-dur` (default 0.8 s). Arrowheads fade in with it.
 
 Word times are exact with ElevenLabs and estimated with the free voices, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
@@ -50,7 +51,17 @@ One self-contained responsive file: semantic HTML, visible focus, respects `pref
 
 ## 4. Video → `out/<folder>.mp4`
 
-An explainer runs 60–90 s: about 140–200 spoken words over 5–7 scenes. Reels can be shorter. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap. Diagram parts build up with the narration (see Motion); page states become before/after scenes. Narration at 130–165 words per minute (pauses included), one idea per sentence; the screen supports the voice rather than repeating it word for word.
+Set `"mode"` to match where the video plays. The two are paced differently, and a reel paced like an explainer is boring.
+
+| | Explainer (`"mode": "explainer"`, default) | Reel (`"mode": "reel"`) |
+| --- | --- | --- |
+| Length | 60–90 s, 140–200 words, 5–7 scenes | 30–60 s, 100–160 words, 5–7 scenes |
+| Pace | 130–165 wpm, `speed` 0.8–1 | 150–185 wpm, `speed` 1 |
+| Cuts | Fades | Hard cuts (`transition: "cut"`, the reel default) |
+| Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene |
+| Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
+
+Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
 
 Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
@@ -76,6 +87,9 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 
 | Field | Meaning |
 | --- | --- |
+| `mode` | `"explainer"` (default) or `"reel"`: sets the wpm check and the default transition |
+| `transition` | `"fade"` or `"cut"`, for the whole video or one scene |
+| `type: "big"` | One huge centred line (hooks, numbers). Pair with `bleed` for a photo behind |
 | `theme` | `"light"` (cream paper, charcoal, coral accent, teal kicker) for explainers. Omit for dark |
 | `format` | `"portrait"` (default, 1080×1920) or `"landscape"` (1920×1080) |
 | `captions` | `true` burns captions into the video. The `.srt` is written either way |
@@ -86,8 +100,8 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `id`, `purpose` | Scene name and what the viewer should understand after it (storyboard) |
 | `vo` | Narration. Write numbers and dates the way they are spoken |
 | `kicker` | Small mono line above the title |
-| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up |
-| `sub` | Plain line under the title |
+| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
+| `sub` | Line under the title; HTML, `data-at` works here too |
 | `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs render as images, so they use system fonts |
 | `fit: "contain"` | Whole image on a light card: diagrams, documents |
 | `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
@@ -98,11 +112,11 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 
 **Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
 
-**Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors, format, cues })` (scenes carry `start` and `dur` in seconds; `base` is the project folder URL; `cues` is `[{ t0, t1, text }]`, empty unless captions are on; may be async) and `window.render(t, { poster })`, which draws the frame at `t` seconds as a pure function of time (`poster` is true for the thumbnail: leave captions out).
+**Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors, format, cues })` (scenes carry `start`, `dur` in seconds and `transition`; `base` is the project folder URL; `cues` is `[{ t0, t1, text, words: [{ w, t }] }]`, empty unless captions are on; may be async) and `window.render(t, { poster })`, which draws the frame at `t` seconds as a pure function of time (`poster` is true for the thumbnail: leave captions out).
 
 ## Look
 
-Explainers: a light editorial page: cream paper, charcoal ink, one coral accent, a little teal, monospaced labels, plenty of space. Brand reels: dark theme plus the brand's `colors`. Leave out stock AI gradients, floating particles, glossy 3D, neon interfaces and camera moves without a reason.
+Explainers: a light editorial page: cream paper, charcoal ink, one coral accent, a little teal, monospaced labels, plenty of space, calm motion. Reels: the dark theme plus the brand's `colors`, big type, full-bleed photos, hard cuts and a camera that follows the narration (`data-focus`). Calm is right for an explainer and wrong for a reel. In both, leave out stock AI gradients, floating particles, glossy 3D and neon interfaces.
 
 ## Final review
 
@@ -112,6 +126,7 @@ Check each form alone: the text alone, the diagram alone, the page with motion o
 
 ## Common mistakes
 
+- **A flat reel:** the same layout scene after scene, a static picture held for more than 3 s, a slow voice, a quiet first second. Vary `type`, `bleed` and card scenes; tag diagrams and titles with `data-at`.
 - **Paying for drafts:** draft with a free voice. The cache saves unchanged lines, but every new wording of a line is billed.
 - **Overwriting a good render:** each build wipes `out/`; copy `out/<folder>.mp4` aside first.
 - **Music shorter than the cut:** it loops, which can be audible. Delete `music.mp3` to regenerate at the new length (paid).
