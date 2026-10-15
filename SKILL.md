@@ -67,9 +67,10 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 
 **Steps**
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
-2. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
-3. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
-4. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside 130–165 wpm: set `speed` (whole video or that scene) and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
+2. Style frames before any full render: `STILLS=1 VOICE=say node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it.
+3. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
+4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
+5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside 130–165 wpm: set `speed` (whole video or that scene) and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
 
 ### scenes.json
 
@@ -121,6 +122,30 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 ## Look
 
 Explainers: a light editorial page: cream paper, charcoal ink, one coral accent, a little teal, monospaced labels, plenty of space, calm motion. Reels: the dark theme plus the brand's `colors`, big type, full-bleed photos, hard cuts and a camera that follows the narration (`data-focus`). Calm is right for an explainer and wrong for a reel. In both, leave out stock AI gradients, floating particles, glossy 3D and neon interfaces.
+
+## Motion
+
+The template animates with a closed-form spring (title words with `data-at` settle with a slight overshoot; a count-up kicks when it lands) and a glide for the camera. Rules for scenes and SVGs:
+
+- **One main move at a time.** Everything else is still or follows it.
+- **Exits are quicker than entries:** in over 0.4–0.6 s, out over 0.2–0.3 s.
+- **Stagger groups** 30–60 ms apart, in reading order or from the centre out (`data-in` delays on a `data-at` part).
+- **Text stays long enough to read:** at least letters ÷ 15 + 1.5 s once it is fully in. Fast pace comes from fewer words, not shorter holds.
+- **The next picture grows out of the last one** where it can (match cut: the chalk line becomes the map border). Keep to two or three kinds of transition per video.
+- **One signature moment** per video, at the emotional peak, that can be described in a sentence.
+
+Avoid the default "AI look":
+
+| Default | Instead |
+| --- | --- |
+| Everything fades in together | Stagger, spring, entry on the word |
+| Centred big text on every scene | Mix `big`, card and `bleed` scenes |
+| Purple–blue gradients, glow everywhere | The brand's two colours plus one accent; glow only on things that give light |
+| Generic particles, lens flares | Motion with a job: forming, following, pointing |
+| Linear moves | Spring or glide |
+| Corner labels, thin frames, fake data | Labels only where they carry information |
+| Emoji icons, SVG faces | Abstract shapes; real photos for people |
+| Generated "archive" pictures | Real photos with credit, or drawings that are plainly drawings |
 
 ## Final review
 

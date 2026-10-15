@@ -198,7 +198,7 @@ const music = join(here, "music.mp3");
 const planId = createHash("sha1").update(JSON.stringify(musicPlan() ?? MUSIC_PROMPT ?? "")).digest("hex").slice(0, 16);
 if (existsSync(music) && existsSync(music + ".id") && readFileSync(music + ".id", "utf8") !== planId)
   console.log("music: scenes or prompts changed since music.mp3 was made; delete it to regenerate (billed)");
-if (!existsSync(music) && ENGINE === "elevenlabs" && (MUSIC_PROMPT || musicPlan())) {
+if (!existsSync(music) && ENGINE === "elevenlabs" && !process.env.STILLS && (MUSIC_PROMPT || musicPlan())) {
   console.log("music: generating");
   const res = await fetch("https://api.elevenlabs.io/v1/music", {
     method: "POST",
@@ -244,7 +244,7 @@ function spokenAt(s, phrase) {
 const sfxCache = join(here, ".sfx-cache"), effects = [];
 for (const s of scenes) for (const e of s.sfx ?? []) {
   const f = join(sfxCache, createHash("sha1").update(JSON.stringify([e.prompt, e.dur])).digest("hex").slice(0, 16) + ".mp3");
-  if (!existsSync(f) && ENGINE === "elevenlabs") {
+  if (!existsSync(f) && ENGINE === "elevenlabs" && !process.env.STILLS) {
     const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
       method: "POST",
       headers: { "xi-api-key": KEY, "content-type": "application/json" },
@@ -289,6 +289,20 @@ const pages = await Promise.all(Array.from({ length: Math.min(4, Math.max(1, cpu
   await page.evaluate(c => window.setup(c), cfg);
   return page;
 }));
+// "Settled" = just before the fade-out, so animated diagrams are fully built.
+const settled = s => s.start + Math.max(s.dur - 0.5, Math.min(2, s.dur - 0.45));
+// STILLS=1: style frames only, one settled frame per scene in out/stills/, no video.
+// Cheap way to compare looks (colors, theme, art) before a full render.
+if (process.env.STILLS) {
+  mkdirSync(join(out, "stills"));
+  for (const [k, s] of scenes.entries()) {
+    await pages[0].evaluate(t => window.render(t, { poster: true }), settled(s));
+    await pages[0].screenshot({ path: join(out, "stills", `${String(k + 1).padStart(2, "0")}-${s.id ?? "scene"}.jpg`), type: "jpeg", quality: 92 });
+  }
+  await browser.close();
+  console.log(`stills: ${join(out, "stills")}`);
+  process.exit(0);
+}
 let done = 0;
 await Promise.all(pages.map(async (page, k) => {
   for (let f = k; f < frames; f += pages.length) {
@@ -300,8 +314,6 @@ await Promise.all(pages.map(async (page, k) => {
 
 // 2b. Poster: settled frame of the `poster: true` scene (else the last), rendered without
 // captions. Also baked in as frame 0 so platform thumbnails show it.
-// "Settled" = just before the fade-out, so animated diagrams are fully built.
-const settled = s => s.start + Math.max(s.dur - 0.5, Math.min(2, s.dur - 0.45));
 await pages[0].evaluate(t => window.render(t, { poster: true }), settled(scenes.find(s => s.poster) ?? scenes.at(-1)));
 await pages[0].screenshot({ path: join(out, "poster.jpg"), type: "jpeg", quality: 92 });
 await browser.close();
