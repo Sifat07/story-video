@@ -94,6 +94,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `format` | `"portrait"` (default, 1080×1920) or `"landscape"` (1920×1080) |
 | `captions` | `true` burns captions into the video. The `.srt` is written either way |
 | `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene. `eleven_v3`/`eleven_v4` ignore it: use `tempo` |
+| `foreign` | Phrases in another language, e.g. `["Remontada", "¡Hala Madrid!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
 | `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them |
 | `tempo` | Speeds the finished voice up (or down) without changing pitch, e.g. `1.2`; word times follow. Also per scene (an `[excited]` line is already fast: set that scene to `1`) |
 | `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim` |

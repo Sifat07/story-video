@@ -41,6 +41,7 @@
   #cap > span { font:600 48px/1.35 "Work Sans", sans-serif; color:var(--ink); background:var(--scrim); padding:8px 22px; border-radius:10px; }
   #cap b { font-weight:inherit; }
   #cap .on { color:var(--accent); }
+  #cap .fx { font-style:italic; }
   body.captions.card #stage { padding-bottom:400px; }
   body.captions #rail { bottom:180px; }
   /* "format": "landscape" (1920x1080): card on the right, text on the left. */
@@ -236,7 +237,7 @@
     cap.style.display = cue ? 'block' : 'none';
     if (cue) {
       const now = cue.words.findLastIndex(w => w.t <= t);
-      cap.innerHTML = '<span>' + cue.words.map((w, k) => `<b class="${k === now ? 'on' : ''}">${w.w.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>`).join(' ') + '</span>';
+      cap.innerHTML = '<span>' + cue.words.map((w, k) => `<b class="${k === now ? 'on' : ''}${w.i ? ' fx' : ''}">${w.w.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>`).join(' ') + '</span>';
     }
     // Dot glides from the previous scene's year to this one's.
     if (Number.isFinite(s.year)) {

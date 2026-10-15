@@ -19,7 +19,7 @@ const FPS = 30, LEAD = 0.25, TAIL = 0.45, END_HOLD = 1.6;
 const FORMATS = { portrait: [1080, 1920], landscape: [1920, 1080] };
 // ElevenLabs "George" (stock voice). Override with ELEVENLABS_VOICE_ID.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
-const { model: MODEL = "eleven_multilingual_v2", music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, tempo = 1, mode = "explainer",
+const { model: MODEL = "eleven_multilingual_v2", music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, tempo = 1, foreign = [], mode = "explainer",
   transition, scenes } = JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
 // mode "reel": faster pace and hard cuts by default; "explainer": calmer pace and fades.
 const [WPM_LO, WPM_HI] = mode === "reel" ? [150, 185] : [130, 165];
@@ -146,6 +146,12 @@ console.log(`length: ${total.toFixed(1)} s`);
 // 1b. Captions: one cue per clause (split at punctuation); a clause over 34 characters
 // (one line) splits into even parts. Always written as an .srt to upload; burned into
 // the frames when scenes.json has "captions": true.
+// `foreign`: phrases in another language ("Remontada", "¡Hala Madrid!"), set in italics in captions.
+const plain = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+for (const s of scenes) for (const f of foreign) {
+  const want = f.split(/\s+/).map(plain).filter(Boolean), ws = s.words.map(x => plain(x.w));
+  ws.forEach((_, k) => { if (want.length && want.every((w, j) => ws[k + j] === w)) want.forEach((_, j) => s.words[k + j].i = true); });
+}
 const cues = [];
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
@@ -165,7 +171,7 @@ for (const s of scenes) {
   });
   parts.forEach((p, k) => cues.push({
     t0: s.start + LEAD + p[0].t, t1: s.start + LEAD + (parts[k + 1]?.[0].t ?? s.d), text: line(p),
-    words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t })) }));
+    words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t, ...(x.i && { i: true }) })) }));
 }
 const srtTime = t => new Date(t * 1000).toISOString().slice(11, 23).replace(".", ",");
 writeFileSync(join(out, `${basename(here)}.srt`),
