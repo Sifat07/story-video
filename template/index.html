@@ -207,7 +207,9 @@
       s.el.style.opacity = (cut ? 1 : ease(lt / 0.5)) * out;
       const imgs = [...s.el.children], slice = s.dur / imgs.length;
       imgs.forEach((img, k) => {
-        img.style.opacity = k === 0 ? 1 : ease((lt - k * slice) / 0.5);
+        // Each image hands over to the next, so a letterboxed one never shows the last one behind it.
+        const fadeIn = k === 0 ? 1 : ease((lt - k * slice) / 0.5);
+        img.style.opacity = fadeIn * (k === imgs.length - 1 ? 1 : 1 - ease((lt - (k + 1) * slice) / 0.5));
         if (img.focus?.length) {
           // Camera: zoom and pan to the part being spoken about, kept inside the box.
           const c = camera(img.focus, lt), W = img.offsetWidth, H = img.offsetHeight;
