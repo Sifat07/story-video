@@ -35,9 +35,11 @@ function readKey() {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY;
   const f = join(homedir(), ".elevenlabs.env");
   if (!existsSync(f)) return null;
-  return readFileSync(f, "utf8").match(/^ELEVENLABS_API_KEY=(.+)$/m)?.[1].trim() || null;
+  try { return readFileSync(f, "utf8").match(/^ELEVENLABS_API_KEY=(.+)$/m)?.[1].trim() || null; }
+  catch (e) { console.warn(`can't read ${f} (${e.code}): no ElevenLabs`); return null; }
 }
-const KEY = readKey();
+// A free draft never touches the key, so it can't bill by accident.
+const KEY = ["say", "espeak"].includes(process.env.VOICE) ? null : readKey();
 const has = cmd => spawnSync("which", [cmd]).status === 0;
 const ENGINE = process.env.VOICE ||
   (KEY ? "elevenlabs" : platform() === "darwin" ? "say" : has("espeak-ng") ? "espeak" : null);
@@ -105,6 +107,8 @@ async function voice(text, file, speed, tempo) {
     starts &&= starts.map(x => x / tempo);
   }
   const d = duration(file);
+  // A sandboxed `say` writes a header and no sound, which would surface later as an ffmpeg NaN.
+  if (!(d > 0)) throw new Error(`VOICE=${ENGINE} wrote no audio for "${text.slice(0, 40)}" (sandboxed?); try VOICE=espeak`);
   const spans = [...spoken.matchAll(/\[[^\]]*\]|\S+/g)].filter(m => !m[0].startsWith("["));
   // Show the written words (not respellings) when the word counts line up.
   const shown = untag(text).split(/\s+/).filter(Boolean);
@@ -128,7 +132,7 @@ for (const [i, s] of scenes.entries()) {
   // Target words per minute (pauses included) by mode. Only the final voice is judged.
   const wpm = Math.round(s.words.length / s.d * 60);
   if (ENGINE === "elevenlabs" && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
-  const shown = [s.kicker, s.title?.replace(/<[^>]+>/g, ""), s.sub].filter(Boolean).join(" / ");
+  const shown = [s.kicker, s.title, s.sub].filter(Boolean).map(h => h.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).join(" / ");
   board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
   s.start = start;
   s.dur = LEAD + s.d + (i === scenes.length - 1 ? END_HOLD : TAIL);
