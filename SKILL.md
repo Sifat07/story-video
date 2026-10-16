@@ -107,7 +107,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `kicker` | Small mono line above the title |
 | `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
 | `sub` | Line under the title; HTML, `data-at` works here too |
-| `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs render as images, so they use system fonts |
+| `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs are inlined, so an `<image href="photos/x.jpg">` inside one resolves next to the SVG file |
 | `fit: "contain"` | Whole image on a light card: diagrams, documents |
 | `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
 | `bleed: true` | Image fills the frame behind a scrim |

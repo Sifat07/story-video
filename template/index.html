@@ -132,6 +132,11 @@
           const box = document.createElement('div');
           box.className = 'svg'; box.innerHTML = sc.svgs[f];
           box.querySelector('svg').setAttribute('preserveAspectRatio', sc.fit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice');
+          // <image href="x.jpg"> inside the SVG resolves next to the SVG file, as it would in a browser.
+          for (const im of box.querySelectorAll('image[href]')) {
+            const src = new URL(im.getAttribute('href'), base + 'photos/' + f).href, pre = new Image();
+            im.setAttribute('href', src); pre.src = src; await pre.decode();
+          }
           sc.el.append(box);
           continue;
         }
