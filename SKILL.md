@@ -58,10 +58,10 @@ Set `"mode"` to match where the video plays. The two are paced differently, and 
 | Length | 60–90 s, 140–200 words, 5–7 scenes | 30–60 s, 100–160 words, 5–7 scenes |
 | Pace | 130–165 wpm, `speed` 0.8–1 | 150–185 wpm, `speed` 1 |
 | Cuts | Fades | Hard cuts (`transition: "cut"`, the reel default) |
-| Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene |
+| Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene. Hook on what the viewer wants, not on correcting them: "Not quite" or "No guarantee" reads as negative |
 | Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
 
-Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
+End a reel on a share or tag ("Tag the friend you'd go with"), not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
 
 Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
@@ -70,7 +70,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 2. Style frames before any full render: `STILLS=1 VOICE=say node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it.
 3. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
 4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
-5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside 130–165 wpm: set `speed` (whole video or that scene) and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
+5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside the mode's wpm range: set `tempo` (free, reuses cached lines) or, on `eleven_multilingual_v2` only, `speed` (re-voices and bills every changed line), for the whole video or one scene, and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
 
 ### scenes.json
 
@@ -105,7 +105,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `id`, `purpose` | Scene name and what the viewer should understand after it (storyboard) |
 | `vo` | Narration. Write numbers and dates the way they are spoken |
 | `kicker` | Small mono line above the title |
-| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
+| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up from the scene start, so add `data-at` to start it on its spoken number; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
 | `sub` | Line under the title; HTML, `data-at` works here too |
 | `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs are inlined, so an `<image href="photos/x.jpg">` inside one resolves next to the SVG file |
 | `fit: "contain"` | Whole image on a light card: diagrams, documents |
