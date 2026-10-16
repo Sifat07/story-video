@@ -60,7 +60,7 @@ Set `"mode"` to match where the video plays. The two are paced differently, and 
 | | Explainer (`"mode": "explainer"`, default) | Reel (`"mode": "reel"`) |
 | --- | --- | --- |
 | Length | 60–90 s, 140–200 words, 5–7 scenes | 30–60 s, 100–160 words, 5–7 scenes |
-| Pace | 130–165 wpm, `speed` 0.8–1 | 150–185 wpm, `speed` 1 |
+| Pace | 130–165 wpm | 150–185 wpm (`tempo` ~1.15 on `eleven_v4`, which reads slowly) |
 | Cuts | Fades | Hard cuts (`transition: "cut"`, the reel default) |
 | Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene. Hook on what the viewer wants, not on correcting them: "Not quite" or "No guarantee" reads as negative |
 | Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
@@ -102,7 +102,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `foreign` | Phrases in another language, e.g. `["Remontada", "¡Hala Madrid!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
 | `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them |
 | `tempo` | Speeds the finished voice up (or down) without changing pitch, e.g. `1.2`; word times follow. Also per scene (an `[excited]` line is already fast: set that scene to `1`) |
-| `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim` |
+| `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim`, and `card` (behind `fit: "contain"` images) |
 | `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3`. On a scene: that scene's part of the score ("near silence, low pulse"); any scene `music` turns the track into sections timed to the scenes (sections under 3 s join the next). After timing changes the build warns: delete `music.mp3` to regenerate (billed) |
 | `sfx` | On a scene: `[{ "prompt": "crowd roar", "at": "phrase", "dur": 4, "gain": 0.5 }]`. Made once (ElevenLabs sound effects) into `.sfx-cache/`, laid in when the phrase is spoken (scene start without `at`). Free drafts use cached effects only |
 | `pronounce` | Respellings for the voice, e.g. `{ "Peña": "Penya" }` |
@@ -112,14 +112,14 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up from the scene start, so add `data-at` to start it on its spoken number; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
 | `sub` | Line under the title; HTML, `data-at` works here too |
 | `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs are inlined, so an `<image href="photos/x.jpg">` inside one resolves next to the SVG file |
-| `fit: "contain"` | Whole image on a light card: diagrams, documents |
+| `fit: "contain"` | Whole image on a card (`colors.card`): diagrams, documents, wide group photos |
 | `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
 | `bleed: true` | Image fills the frame behind a scrim |
 | `logo: true` | Show `logo.png` from the project folder above the text |
 | `poster: true` | This scene's settled frame becomes `out/poster.jpg` and frame 0 (the thumbnail). Default: last scene. Pick a scene with an image |
 | `year` | Draws a timeline across the scenes' years. Omit for no timeline |
 
-**Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
+**Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The text block grows upward, so with a card keep kicker, title and sub to about five lines or they cover the card's bottom (put photo credits in `<small>`, drop a sub that repeats the voice). The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
 
 **Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors, format, cues })` (scenes carry `start`, `dur` in seconds and `transition`; `base` is the project folder URL; `cues` is `[{ t0, t1, text, words: [{ w, t }] }]`, empty unless captions are on; may be async) and `window.render(t, { poster })`, which draws the frame at `t` seconds as a pure function of time (`poster` is true for the thumbnail: leave captions out).
 
