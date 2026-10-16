@@ -65,7 +65,7 @@ Set `"mode"` to match where the video plays. The two are paced differently, and 
 | Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene. Hook on what the viewer wants, not on correcting them: "Not quite" or "No guarantee" reads as negative |
 | Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
 
-End a reel on a share or tag ("Tag the friend you'd go with"), not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Close the loop the hook opened: a reel that ends on its opening picture or line ("2:00 AM" … "2:00 AM") replays without a seam, and replays count as watch time. Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
+End a reel on a share or tag ("Tag the friend you'd go with"), not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Close the loop the hook opened: a reel that ends on its opening picture or line ("Only 3 left?" … "Only 3 left") replays without a seam, and replays count as watch time. Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
 
 Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
@@ -99,13 +99,13 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `format` | `"portrait"` (default, 1080×1920) or `"landscape"` (1920×1080) |
 | `captions` | `true` burns captions into the video. The `.srt` is written either way |
 | `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene. `eleven_v3`/`eleven_v4` ignore it: use `tempo` |
-| `foreign` | Phrases in another language, e.g. `["Remontada", "¡Hala Madrid!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
+| `foreign` | Phrases in another language, e.g. `["mise en place", "Bon appétit!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
 | `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them |
 | `tempo` | Speeds the finished voice up (or down) without changing pitch, e.g. `1.2`; word times follow. Also per scene (an `[excited]` line is already fast: set that scene to `1`) |
 | `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim`, and `card` (behind `fit: "contain"` images) |
 | `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3`. On a scene: that scene's part of the score ("near silence, low pulse"); any scene `music` turns the track into sections timed to the scenes (sections under 3 s join the next). After timing changes the build warns: delete `music.mp3` to regenerate (billed) |
 | `sfx` | On a scene: `[{ "prompt": "crowd roar", "at": "phrase", "dur": 4, "gain": 0.5 }]`. Made once (ElevenLabs sound effects) into `.sfx-cache/`, laid in when the phrase is spoken (scene start without `at`). Free drafts use cached effects only |
-| `pronounce` | Respellings for the voice, e.g. `{ "Peña": "Penya" }` |
+| `pronounce` | Respellings for the voice, e.g. `{ "Gnocchi": "Nyokee" }` |
 | `id`, `purpose` | Scene name and what the viewer should understand after it (storyboard) |
 | `vo` | Narration. Write numbers and dates the way they are spoken |
 | `kicker` | Small mono line above the title |

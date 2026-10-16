@@ -53,7 +53,7 @@ mkdirSync(join(out, "frames"), { recursive: true });
 const ff = (...args) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...args]);
 const duration = f =>
   +execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString();
-// `pronounce` respells words the voice gets wrong, e.g. { "Peña": "Penya" }.
+// `pronounce` respells words the voice gets wrong, e.g. { "Gnocchi": "Nyokee" }.
 const respell = text => Object.entries(pronounce).reduce((t, [w, say]) => t.replaceAll(w, say), text);
 // Audio tags ("[whispers]", "[excited]") steer eleven_v3/v4. They are sent to ElevenLabs but
 // never spoken by the free voices, shown in captions, or counted as words.
@@ -150,7 +150,7 @@ console.log(`length: ${total.toFixed(1)} s`);
 // 1b. Captions: one cue per clause (split at punctuation); a clause over 34 characters
 // (one line) splits into even parts. Always written as an .srt to upload; burned into
 // the frames when scenes.json has "captions": true.
-// `foreign`: phrases in another language ("Remontada", "¡Hala Madrid!"), set in italics in captions.
+// `foreign`: phrases in another language ("mise en place", "Bon appétit!"), set in italics in captions.
 const plain = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 for (const s of scenes) for (const f of foreign) {
   const want = f.split(/\s+/).map(plain).filter(Boolean), ws = s.words.map(x => plain(x.w));

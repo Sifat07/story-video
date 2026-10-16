@@ -180,7 +180,7 @@
       scenes.forEach(o => o.el && (o.el.style.display = o === s ? 'block' : 'none'));
       document.body.classList.toggle('card', !!s.photos && !s.bleed);
       document.body.classList.toggle('big', s.type === 'big');
-      // A word too long for the line ("Remontada" at 230px) shrinks until it fits.
+      // A word too long for the line ("Extraordinary" at 230px) shrinks until it fits.
       title.style.fontSize = '';
       for (let f = parseFloat(getComputedStyle(title).fontSize); f > 60 && title.scrollWidth > title.clientWidth + 1; f -= 6)
         title.style.fontSize = f + 'px';
