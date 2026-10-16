@@ -46,7 +46,8 @@ Free voices estimate word timings; ElevenLabs returns exact ones. The key is rea
 
 - The four-form ladder (controlled-English writing, diagrams, HTML pages, explainer videos) comes from [Andrej Karpathy's post on X](https://x.com/karpathy/status/2105819303471976479) (2 October 2026) on understanding language-model output.
 - The staged structure was inspired by a "learning studio" prompt shared by @0xCarnagee. The wording here is our own.
-- Not affiliated with or endorsed by either.
+- Motion rules, the spring, style frames and the avoid list are adapted from [garden-skills](https://github.com/ConardLi/garden-skills) `motion-showreel` (MIT).
+- Not affiliated with or endorsed by any of them.
 
 ## License
 

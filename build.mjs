@@ -6,7 +6,7 @@
 // Usage: node build.mjs <project-dir>
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { cpus, homedir, platform } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,8 +18,8 @@ const out = join(here, "out");
 const FPS = 30, LEAD = 0.25, TAIL = 0.45, END_HOLD = 1.6;
 const FORMATS = { portrait: [1080, 1920], landscape: [1920, 1080] };
 // ElevenLabs "George" (stock voice). Override with ELEVENLABS_VOICE_ID.
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb", MODEL = "eleven_multilingual_v2";
-const { music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, mode = "explainer",
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
+const { model: MODEL = "eleven_multilingual_v2", music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, tempo = 1, foreign = [], mode = "explainer",
   transition, scenes } = JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
 // mode "reel": faster pace and hard cuts by default; "explainer": calmer pace and fades.
 const [WPM_LO, WPM_HI] = mode === "reel" ? [150, 185] : [130, 165];
@@ -53,6 +53,10 @@ const duration = f =>
   +execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString();
 // `pronounce` respells words the voice gets wrong, e.g. { "Peña": "Penya" }.
 const respell = text => Object.entries(pronounce).reduce((t, [w, say]) => t.replaceAll(w, say), text);
+// Audio tags ("[whispers]", "[excited]") steer eleven_v3/v4. They are sent to ElevenLabs but
+// never spoken by the free voices, shown in captions, or counted as words.
+const TAG = /\[[^\]]*\]/g;
+const untag = text => text.replace(TAG, " ").replace(/\s+/g, " ").trim();
 
 // ElevenLabs lines are cached by voice + text in <project>/.voice-cache, so rebuilds that
 // only change visuals (or a few lines) don't re-bill.
@@ -77,25 +81,33 @@ async function eleven(spoken, speed) {
 
 // Voices one scene into `file` (mono wav). Returns its length and when each word starts:
 // exact from ElevenLabs timestamps, else estimated from the word's character position.
-async function voice(text, file, speed) {
-  const spoken = respell(text);
+// tempo: speeds up (or slows) the finished line without changing pitch, for models that
+// ignore `speed` (eleven_v3/v4). Word times scale with it, so captions stay in sync.
+async function voice(text, file, speed, tempo) {
+  let spoken = respell(text);
   let starts = null;
   if (ENGINE === "elevenlabs") {
     const r = await eleven(spoken, speed);
     writeFileSync(file + ".mp3", Buffer.from(r.audio_base64, "base64"));
     ff("-i", file + ".mp3", "-ar", "44100", "-ac", "1", file);
     if (r.alignment?.characters.join("") === spoken) starts = r.alignment.character_start_times_seconds;
-  } else if (ENGINE === "say") {
+  } else spoken = untag(spoken);
+  if (ENGINE === "say") {
     execFileSync("say", ["-v", process.env.SAY_VOICE || "Daniel", "-r", process.env.SAY_RATE || "120", "-o", file + ".aiff", spoken]);
     ff("-i", file + ".aiff", "-ar", "44100", "-ac", "1", file);
-  } else {
+  } else if (ENGINE === "espeak") {
     execFileSync("espeak-ng", ["-v", process.env.ESPEAK_VOICE || "en-gb", "-s", process.env.SAY_RATE || "140", "-w", file + ".raw.wav", spoken]);
     ff("-i", file + ".raw.wav", "-ar", "44100", "-ac", "1", file);
   }
+  if (tempo !== 1) {
+    ff("-i", file, "-af", `atempo=${tempo}`, file + ".t.wav");
+    renameSync(file + ".t.wav", file);
+    starts &&= starts.map(x => x / tempo);
+  }
   const d = duration(file);
-  const spans = [...spoken.matchAll(/\S+/g)];
+  const spans = [...spoken.matchAll(/\[[^\]]*\]|\S+/g)].filter(m => !m[0].startsWith("["));
   // Show the written words (not respellings) when the word counts line up.
-  const shown = text.split(/\s+/).filter(Boolean);
+  const shown = untag(text).split(/\s+/).filter(Boolean);
   const words = spans.map((m, k) => ({
     w: shown.length === spans.length ? shown[k] : m[0],
     t: starts ? starts[m.index] : m.index / spoken.length * d,
@@ -112,7 +124,7 @@ const tc = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
 const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --- | --- | --- | --- | --- | --- |"];
 for (const [i, s] of scenes.entries()) {
   const raw = join(out, `vo-${i}.wav`), padded = join(out, `seg-${i}.wav`);
-  Object.assign(s, await voice(s.vo, raw, s.speed ?? speed));
+  Object.assign(s, await voice(s.vo, raw, s.speed ?? speed, s.tempo ?? tempo));
   // Target words per minute (pauses included) by mode. Only the final voice is judged.
   const wpm = Math.round(s.words.length / s.d * 60);
   if (ENGINE === "elevenlabs" && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
@@ -134,6 +146,12 @@ console.log(`length: ${total.toFixed(1)} s`);
 // 1b. Captions: one cue per clause (split at punctuation); a clause over 34 characters
 // (one line) splits into even parts. Always written as an .srt to upload; burned into
 // the frames when scenes.json has "captions": true.
+// `foreign`: phrases in another language ("Remontada", "¡Hala Madrid!"), set in italics in captions.
+const plain = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+for (const s of scenes) for (const f of foreign) {
+  const want = f.split(/\s+/).map(plain).filter(Boolean), ws = s.words.map(x => plain(x.w));
+  ws.forEach((_, k) => { if (want.length && want.every((w, j) => ws[k + j] === w)) want.forEach((_, j) => s.words[k + j].i = true); });
+}
 const cues = [];
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
@@ -153,24 +171,45 @@ for (const s of scenes) {
   });
   parts.forEach((p, k) => cues.push({
     t0: s.start + LEAD + p[0].t, t1: s.start + LEAD + (parts[k + 1]?.[0].t ?? s.d), text: line(p),
-    words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t })) }));
+    words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t, ...(x.i && { i: true }) })) }));
 }
 const srtTime = t => new Date(t * 1000).toISOString().slice(11, 23).replace(".", ",");
 writeFileSync(join(out, `${basename(here)}.srt`),
   cues.map((c, k) => `${k + 1}\n${srtTime(c.t0)} --> ${srtTime(c.t1)}\n${c.text}\n`).join("\n"));
 
+// Scenes with a "music" line get their own section, timed to the scene, so the score follows
+// the cuts (ElevenLabs composition plan, music_v2_5). Sections under 3 s join the next one.
+function musicPlan() {
+  if (!scenes.some(s => s.music)) return null;
+  const chunks = [];
+  for (const s of scenes) {
+    const last = chunks.at(-1), ms = Math.round(s.dur * 1000);
+    if (last && last.duration_ms < 3000) { last.duration_ms += ms; if (s.music) last.positive_styles.push(s.music); }
+    else chunks.push({ text: "", duration_ms: ms, positive_styles: [MUSIC_PROMPT, s.music].filter(Boolean),
+      negative_styles: ["vocals", "singing", "lyrics"], context_adherence: "high" });
+  }
+  if (chunks.length > 1 && chunks.at(-1).duration_ms < 3000) chunks.at(-2).duration_ms += chunks.pop().duration_ms;
+  return { chunks };
+}
+
 // 1c. Music bed: generated once (ElevenLabs Music) and reused, so re-renders cost no credits.
 // A track shorter than the cut loops. Delete music.mp3 to regenerate, or drop in your own.
 const music = join(here, "music.mp3");
-if (!existsSync(music) && ENGINE === "elevenlabs" && MUSIC_PROMPT) {
+const planId = createHash("sha1").update(JSON.stringify(musicPlan() ?? MUSIC_PROMPT ?? "")).digest("hex").slice(0, 16);
+if (existsSync(music) && existsSync(music + ".id") && readFileSync(music + ".id", "utf8") !== planId)
+  console.log("music: scenes or prompts changed since music.mp3 was made; delete it to regenerate (billed)");
+if (!existsSync(music) && ENGINE === "elevenlabs" && !process.env.STILLS && (MUSIC_PROMPT || musicPlan())) {
   console.log("music: generating");
   const res = await fetch("https://api.elevenlabs.io/v1/music", {
     method: "POST",
     headers: { "xi-api-key": KEY, "content-type": "application/json" },
-    body: JSON.stringify({ prompt: MUSIC_PROMPT, music_length_ms: Math.ceil(total + 1) * 1000, force_instrumental: true }),
+    body: JSON.stringify(musicPlan()
+      ? { composition_plan: musicPlan(), model_id: "music_v2_5" }
+      : { prompt: MUSIC_PROMPT, music_length_ms: Math.ceil(total + 1) * 1000, force_instrumental: true }),
   });
   if (!res.ok) throw new Error(`ElevenLabs music ${res.status}: ${(await res.text()).slice(0, 200)}`);
   writeFileSync(music, Buffer.from(await res.arrayBuffer()));
+  writeFileSync(music + ".id", planId);
 }
 let soundtrack = join(out, "narration.wav");
 if (existsSync(music)) {
@@ -199,6 +238,34 @@ function spokenAt(s, phrase) {
   }
   throw new Error(`scene ${s.id}: data-at "${phrase}" is not in its narration`);
 }
+// 1d. Sound effects: per scene "sfx": [{ prompt, at?, dur?, gain? }]. Each is made once
+// (ElevenLabs sound generation) into .sfx-cache and laid in when its phrase is spoken
+// (scene start when no "at"). Free drafts use cached effects only.
+const sfxCache = join(here, ".sfx-cache"), effects = [];
+for (const s of scenes) for (const e of s.sfx ?? []) {
+  const f = join(sfxCache, createHash("sha1").update(JSON.stringify([e.prompt, e.dur])).digest("hex").slice(0, 16) + ".mp3");
+  if (!existsSync(f) && ENGINE === "elevenlabs" && !process.env.STILLS) {
+    const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+      method: "POST",
+      headers: { "xi-api-key": KEY, "content-type": "application/json" },
+      body: JSON.stringify({ text: e.prompt, ...(e.dur && { duration_seconds: e.dur }) }),
+    });
+    if (!res.ok) throw new Error(`ElevenLabs sfx ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    mkdirSync(sfxCache, { recursive: true });
+    writeFileSync(f, Buffer.from(await res.arrayBuffer()));
+  }
+  if (existsSync(f)) effects.push({ f, t: s.start + (e.at ? spokenAt(s, e.at) : 0), gain: e.gain ?? 0.5 });
+}
+if (effects.length) {
+  const mixed = join(out, "mix-sfx.wav");
+  ff("-i", soundtrack, ...effects.flatMap(e => ["-i", e.f]), "-filter_complex",
+    effects.map((e, k) => `[${k + 1}]aformat=channel_layouts=stereo,volume=${e.gain},adelay=${Math.round(e.t * 1000)}:all=1[s${k}];`).join("") +
+    `[0]aformat=channel_layouts=stereo[base];[base]${effects.map((_, k) => `[s${k}]`).join("")}amix=inputs=${effects.length + 1}:duration=first:normalize=0`,
+    mixed);
+  soundtrack = mixed;
+  console.log(`sfx: ${effects.length} effect(s)`);
+}
+
 const resolveAt = (s, html) => html.replace(/<[^>]*\sdata-at="[^"]*"[^>]*>/g, tag => {
   const at = tag.match(/\sdata-at="([^"]*)"/)[1], delay = +(tag.match(/\sdata-in="([^"]*)"/)?.[1] ?? 0);
   const t = (spokenAt(s, at) + delay).toFixed(2);
@@ -222,6 +289,20 @@ const pages = await Promise.all(Array.from({ length: Math.min(4, Math.max(1, cpu
   await page.evaluate(c => window.setup(c), cfg);
   return page;
 }));
+// "Settled" = just before the fade-out, so animated diagrams are fully built.
+const settled = s => s.start + Math.max(s.dur - 0.5, Math.min(2, s.dur - 0.45));
+// STILLS=1: style frames only, one settled frame per scene in out/stills/, no video.
+// Cheap way to compare looks (colors, theme, art) before a full render.
+if (process.env.STILLS) {
+  mkdirSync(join(out, "stills"));
+  for (const [k, s] of scenes.entries()) {
+    await pages[0].evaluate(t => window.render(t, { poster: true }), settled(s));
+    await pages[0].screenshot({ path: join(out, "stills", `${String(k + 1).padStart(2, "0")}-${s.id ?? "scene"}.jpg`), type: "jpeg", quality: 92 });
+  }
+  await browser.close();
+  console.log(`stills: ${join(out, "stills")}`);
+  process.exit(0);
+}
 let done = 0;
 await Promise.all(pages.map(async (page, k) => {
   for (let f = k; f < frames; f += pages.length) {
@@ -233,8 +314,6 @@ await Promise.all(pages.map(async (page, k) => {
 
 // 2b. Poster: settled frame of the `poster: true` scene (else the last), rendered without
 // captions. Also baked in as frame 0 so platform thumbnails show it.
-// "Settled" = just before the fade-out, so animated diagrams are fully built.
-const settled = s => s.start + Math.max(s.dur - 0.5, Math.min(2, s.dur - 0.45));
 await pages[0].evaluate(t => window.render(t, { poster: true }), settled(scenes.find(s => s.poster) ?? scenes.at(-1)));
 await pages[0].screenshot({ path: join(out, "poster.jpg"), type: "jpeg", quality: 92 });
 await browser.close();

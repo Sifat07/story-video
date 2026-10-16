@@ -38,6 +38,10 @@ The same SVG feeds the page and the video, so: transparent background, at least 
 - `data-out="6"`: fades out at 6 s.
 - `data-focus="1.4"` (with `data-at`): the camera zooms to that part (1.4×) and pans to it when its phrase is spoken, then moves on to the next focus. `data-focus="1"` pulls back to the whole diagram. Fit the zoomed part inside the frame: at 1.4× a part may be at most ~70% of the diagram's width.
 - `class="draw"` on a `path`, `line`, `polyline`, `rect` or `circle`: the stroke traces itself from its `data-at` (or `data-in`) time over `data-dur` (default 0.8 s). Arrowheads fade in with it.
+- `data-from="dx dy scale rotate"` (with `data-at` or `data-in`): springs the part in from that offset, e.g. `"0 0 1.9 4"` slams a stamp down, `"-420 40 1 -9"` slides a print in.
+- `data-wipe="left|up|iris"` (with `data-at` or `data-in`): reveals the part through a moving edge over `data-dur` (default 0.8 s). Good for a letter line or a quote being read out. A wiped group is isolated, so put `mix-blend-mode` on the group, not on the image inside it.
+- `data-stagger="0.03"` on a `<g>` with `data-at`/`data-in`: its children appear one after another, 0.03 s apart, in document order (sort them, e.g. west to east, for a sweep). Keep the total under ~2.5 s.
+- **Camera on a photo:** wrap the photo in an SVG (`<image href="photos/x.jpg">` at the photo's pixel size) and add invisible `<rect data-at="…" data-focus="1.6" fill="none">` over the faces or the flag; the camera moves there when the phrase is spoken. No template change.
 
 Word times are exact with ElevenLabs and estimated with the free voices, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
 
@@ -56,20 +60,21 @@ Set `"mode"` to match where the video plays. The two are paced differently, and 
 | | Explainer (`"mode": "explainer"`, default) | Reel (`"mode": "reel"`) |
 | --- | --- | --- |
 | Length | 60–90 s, 140–200 words, 5–7 scenes | 30–60 s, 100–160 words, 5–7 scenes |
-| Pace | 130–165 wpm, `speed` 0.8–1 | 150–185 wpm, `speed` 1 |
+| Pace | 130–165 wpm | 150–185 wpm (`tempo` ~1.15 on `eleven_v4`, which reads slowly) |
 | Cuts | Fades | Hard cuts (`transition: "cut"`, the reel default) |
-| Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene |
+| Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene. Hook on what the viewer wants, not on correcting them: "Not quite" or "No guarantee" reads as negative |
 | Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
 
-Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
+End a reel on a share or tag ("Tag the friend you'd go with"), not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
 
 Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
 **Steps**
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
-2. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
-3. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
-4. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside 130–165 wpm: set `speed` (whole video or that scene) and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
+2. Style frames before any full render: `STILLS=1 VOICE=say node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it.
+3. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it.
+4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
+5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside the mode's wpm range: set `tempo` (free, reuses cached lines) or, on `eleven_multilingual_v2` only, `speed` (re-voices and bills every changed line), for the whole video or one scene, and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
 
 ### scenes.json
 
@@ -93,30 +98,58 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `theme` | `"light"` (cream paper, charcoal, coral accent, teal kicker) for explainers. Omit for dark |
 | `format` | `"portrait"` (default, 1080×1920) or `"landscape"` (1920×1080) |
 | `captions` | `true` burns captions into the video. The `.srt` is written either way |
-| `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene |
-| `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim` |
-| `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3` |
+| `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene. `eleven_v3`/`eleven_v4` ignore it: use `tempo` |
+| `foreign` | Phrases in another language, e.g. `["Remontada", "¡Hala Madrid!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
+| `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them |
+| `tempo` | Speeds the finished voice up (or down) without changing pitch, e.g. `1.2`; word times follow. Also per scene (an `[excited]` line is already fast: set that scene to `1`) |
+| `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim`, and `card` (behind `fit: "contain"` images) |
+| `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3`. On a scene: that scene's part of the score ("near silence, low pulse"); any scene `music` turns the track into sections timed to the scenes (sections under 3 s join the next). After timing changes the build warns: delete `music.mp3` to regenerate (billed) |
+| `sfx` | On a scene: `[{ "prompt": "crowd roar", "at": "phrase", "dur": 4, "gain": 0.5 }]`. Made once (ElevenLabs sound effects) into `.sfx-cache/`, laid in when the phrase is spoken (scene start without `at`). Free drafts use cached effects only |
 | `pronounce` | Respellings for the voice, e.g. `{ "Peña": "Penya" }` |
 | `id`, `purpose` | Scene name and what the viewer should understand after it (storyboard) |
 | `vo` | Narration. Write numbers and dates the way they are spoken |
 | `kicker` | Small mono line above the title |
-| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
+| `title` | HTML, about three short words. `<em>` = accent italic; `<span data-count="110">110</span>` counts up from the scene start, so add `data-at` to start it on its spoken number; `<span data-at="phrase">` pops in on that phrase (a count starts there) |
 | `sub` | Line under the title; HTML, `data-at` works here too |
-| `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs render as images, so they use system fonts |
-| `fit: "contain"` | Whole image on a light card: diagrams, documents |
+| `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs are inlined, so an `<image href="photos/x.jpg">` inside one resolves next to the SVG file |
+| `fit: "contain"` | Whole image on a card (`colors.card`): diagrams, documents, wide group photos |
 | `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
 | `bleed: true` | Image fills the frame behind a scrim |
 | `logo: true` | Show `logo.png` from the project folder above the text |
 | `poster: true` | This scene's settled frame becomes `out/poster.jpg` and frame 0 (the thumbnail). Default: last scene. Pick a scene with an image |
 | `year` | Draws a timeline across the scenes' years. Omit for no timeline |
 
-**Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
+**Layout:** with an image, a card fills the upper half (landscape: the right half) and the text sits below it (landscape: left of it); without one, the text is centred alone (looks sparse, give most scenes an image); `bleed` puts the text over a full-frame image. Captions sit under the text. The text block grows upward, so with a card keep kicker, title and sub to about five lines or they cover the card's bottom (put photo credits in `<small>`, drop a sub that repeats the voice). The landscape card is close to square (800×830), so draw landscape diagrams square-ish with labels large enough to read at that size.
 
 **Own template:** a project `index.html` replaces the template. It must define `window.setup({ scenes, base, theme, colors, format, cues })` (scenes carry `start`, `dur` in seconds and `transition`; `base` is the project folder URL; `cues` is `[{ t0, t1, text, words: [{ w, t }] }]`, empty unless captions are on; may be async) and `window.render(t, { poster })`, which draws the frame at `t` seconds as a pure function of time (`poster` is true for the thumbnail: leave captions out).
 
 ## Look
 
 Explainers: a light editorial page: cream paper, charcoal ink, one coral accent, a little teal, monospaced labels, plenty of space, calm motion. Reels: the dark theme plus the brand's `colors`, big type, full-bleed photos, hard cuts and a camera that follows the narration (`data-focus`). Calm is right for an explainer and wrong for a reel. In both, leave out stock AI gradients, floating particles, glossy 3D and neon interfaces.
+
+## Motion
+
+The template animates with a closed-form spring (title words with `data-at` settle with a slight overshoot; a count-up kicks when it lands) and a glide for the camera. Rules for scenes and SVGs:
+
+- **One main move at a time.** Everything else is still or follows it.
+- **Exits are quicker than entries:** in over 0.4–0.6 s, out over 0.2–0.3 s.
+- **Stagger groups** 30–60 ms apart, in reading order or from the centre out (`data-in` delays on a `data-at` part).
+- **Text stays long enough to read:** at least letters ÷ 15 + 1.5 s once it is fully in. Fast pace comes from fewer words, not shorter holds.
+- **The next picture grows out of the last one** where it can (match cut: the chalk line becomes the map border). Keep to two or three kinds of transition per video.
+- **One signature moment** per video, at the emotional peak, that can be described in a sentence.
+
+Avoid the default "AI look":
+
+| Default | Instead |
+| --- | --- |
+| Everything fades in together | Stagger, spring, entry on the word |
+| Centred big text on every scene | Mix `big`, card and `bleed` scenes |
+| Purple–blue gradients, glow everywhere | The brand's two colours plus one accent; glow only on things that give light |
+| Generic particles, lens flares | Motion with a job: forming, following, pointing |
+| Linear moves | Spring or glide |
+| Corner labels, thin frames, fake data | Labels only where they carry information |
+| Emoji icons, SVG faces | Abstract shapes; real photos for people |
+| Generated "archive" pictures | Real photos with credit, or drawings that are plainly drawings |
 
 ## Final review
 
