@@ -137,6 +137,11 @@
             const src = new URL(im.getAttribute('href'), base + 'photos/' + f).href, pre = new Image();
             im.setAttribute('href', src); pre.src = src; await pre.decode();
           }
+          // data-stagger="0.03" on a group: its children appear one after another from the group's time.
+          for (const g of box.querySelectorAll('[data-stagger]')) {
+            const t0 = +(g.dataset.in ?? 0); delete g.dataset.in;
+            [...g.children].forEach((c, k) => c.dataset.in = t0 + k * +g.dataset.stagger);
+          }
           sc.el.append(box);
           continue;
         }
@@ -233,7 +238,12 @@
         const tin = +(el.dataset.in ?? 0), dur = +(el.dataset.dur ?? 0.8);
         let o = ease((lt - tin) / 0.5);
         if (el.dataset.out != null) o *= 1 - ease((lt - +el.dataset.out) / 0.4);
-        if (el.classList.contains('draw')) {
+        if (el.dataset.wipe) {
+          // data-wipe="left|up|iris": revealed through a moving edge over data-dur.
+          const p = glide((lt - tin) / dur), q = (1 - p) * 100;
+          el.style.opacity = lt >= tin ? (el.dataset.out != null ? o : 1) : 0;
+          el.style.clipPath = { left: `inset(0 ${q}% 0 0)`, up: `inset(${q}% 0 0 0)`, iris: `circle(${p * 75}% at 50% 50%)` }[el.dataset.wipe];
+        } else if (el.classList.contains('draw')) {
           const len = el.getTotalLength?.() ?? 0;
           el.style.strokeDasharray = len;
           el.style.strokeDashoffset = len * (1 - ease((lt - tin) / dur));

@@ -38,6 +38,10 @@ The same SVG feeds the page and the video, so: transparent background, at least 
 - `data-out="6"`: fades out at 6 s.
 - `data-focus="1.4"` (with `data-at`): the camera zooms to that part (1.4×) and pans to it when its phrase is spoken, then moves on to the next focus. `data-focus="1"` pulls back to the whole diagram. Fit the zoomed part inside the frame: at 1.4× a part may be at most ~70% of the diagram's width.
 - `class="draw"` on a `path`, `line`, `polyline`, `rect` or `circle`: the stroke traces itself from its `data-at` (or `data-in`) time over `data-dur` (default 0.8 s). Arrowheads fade in with it.
+- `data-from="dx dy scale rotate"` (with `data-at` or `data-in`): springs the part in from that offset, e.g. `"0 0 1.9 4"` slams a stamp down, `"-420 40 1 -9"` slides a print in.
+- `data-wipe="left|up|iris"` (with `data-at` or `data-in`): reveals the part through a moving edge over `data-dur` (default 0.8 s). Good for a letter line or a quote being read out. A wiped group is isolated, so put `mix-blend-mode` on the group, not on the image inside it.
+- `data-stagger="0.03"` on a `<g>` with `data-at`/`data-in`: its children appear one after another, 0.03 s apart, in document order (sort them, e.g. west to east, for a sweep). Keep the total under ~2.5 s.
+- **Camera on a photo:** wrap the photo in an SVG (`<image href="photos/x.jpg">` at the photo's pixel size) and add invisible `<rect data-at="…" data-focus="1.6" fill="none">` over the faces or the flag; the camera moves there when the phrase is spoken. No template change.
 
 Word times are exact with ElevenLabs and estimated with the free voices, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
 
