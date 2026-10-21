@@ -20,7 +20,7 @@ npx playwright install chromium   # ~150 MB download
 
 Needs Node 20+, `ffmpeg` and `ffprobe` on your PATH (`brew install ffmpeg`, `apt install ffmpeg`), and network access (fonts load from Google Fonts).
 
-Then ask your agent to "explain how X works" or "make a reel about Y". It reads `SKILL.md` and runs the stages.
+Then ask your agent to "explain how X works" or "make a reel about Y". It reads `SKILL.md` and runs the stages. For a reel or story it first writes `script.md` with `story.md`: one real moment, three hooks, beats and a draft for you to approve before anything is rendered.
 
 ## Render by hand
 
