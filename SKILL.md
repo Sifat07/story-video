@@ -9,12 +9,12 @@ description: Use when the user wants a topic explained or taught (an explainer, 
 
 Understanding climbs a ladder of four forms: **plain writing → one diagram → an interactive page → a narrated video**. Each form is built from the one below and must make the idea clearer, not prettier. Show a concrete case first, name it second. If a detail is missing, decide and continue.
 
-Everything for one piece lives in a project folder (any path; create it): `explanation.md`, `diagram.svg`, `page.html`, `scenes.json`, `photos/`, optional `logo.png` and `music.mp3`, and the build output in `out/`. `<skill>` below means this skill's folder.
+Everything for one piece lives in a project folder (any path; create it): `explanation.md`, `script.md`, `diagram.svg`, `page.html`, `scenes.json`, `photos/`, optional `logo.png` and `music.mp3`, and the build output in `out/`. `<skill>` below means this skill's folder.
 
 **Pick a mode**
 - **Explain** (default for "explain / teach X"): all four forms.
 - **Just enough** (when asked to keep it light): write first; add the next form only if the idea is still not clear.
-- **Reel** (the story is already known, the user wants a video): go straight to the video.
+- **Reel** (the story is already known, the user wants a video): write `script.md` with `<skill>/story.md`, then go to the video.
 
 ## 1. Writing → `explanation.md`
 
@@ -65,11 +65,12 @@ Set `"mode"` to match where the video plays. The two are paced differently, and 
 | Opening | The question | A hook inside 2 s: the most surprising fact or picture, in a `"type": "big"` scene. Hook on what the viewer wants, not on correcting them: "Not quite" or "No guarantee" reads as negative |
 | Screen | Calm; diagrams build up | Something changes every 2–3 s: a title word pops in, a diagram part appears, the camera moves, the scene cuts |
 
-End a reel on a share or tag ("Tag the friend you'd go with"), not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one action, such as when to join or where to follow). Close the loop the hook opened: a reel that ends on its opening picture or line ("Only 3 left?" … "Only 3 left") replays without a seam, and replays count as watch time. Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
+End a reel on a question or a send ("Send this to the friend you'd go with"), not "tag a friend" (platforms demote engagement bait) and not a sign-up: a join line turns the video into an ad. Arc: hook → a situation the viewer knows → the problem made visible → how it works → the turn → what follows → recap (reel: end on one question or a send). Close the loop the hook opened: a reel that ends on its opening picture or line ("Only 3 left?" … "Only 3 left") replays without a seam, and replays count as watch time. Diagram parts build up with the narration (see Motion), and every diagram in a reel moves; page states become before/after scenes. One idea per sentence; the screen supports the voice rather than repeating it word for word. Put `data-at` on title and sub words too, so the key word lands as it is spoken.
 
 Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for YouTube and slides. Most social video plays muted, so set `"captions": true` for reels; every build also writes `out/<folder>.srt` for platforms that take a caption file.
 
 **Steps**
+0. Reel, story, or an explainer built on one event: run `<skill>/story.md` first. It writes `<project>/script.md` (brief, story bank, hooks, beats, draft, checks); the owner reviews it before any render, and `scenes.json` narration comes from its draft.
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
 2. Style frames before any full render: `STILLS=1 VOICE=kokoro node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it. Every build (stills included) first prints `check:` lines: text off the frame, text crowding or covering the picture, captions over the text, a photo shown over 1.5× its pixels (it looks soft), and in a reel a photo held over 3 s. Fix each before the full render; they are warnings, so the build goes on. `examples/check-fixture` trips every one.
 3. Draft for free: `VOICE=kokoro node <skill>/build.mjs <project>` (local Kokoro voice, any OS; `KOKORO_VOICE` picks it, default `bm_george`; first run downloads ~90 MB). Kokoro paces close to a final; `scenes.json` `speed` also sets its pace. Without Kokoro: `VOICE=say` on macOS, `VOICE=espeak` with espeak-ng on Linux, whose pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it. A free `VOICE` never reads the ElevenLabs key, so a draft cannot bill. Inside a command sandbox `say` writes silence and the build stops with "wrote no audio": run it outside the sandbox or use `VOICE=espeak`.
@@ -155,7 +156,7 @@ Avoid the default "AI look":
 
 Check each form alone: the text alone, the diagram alone, the page with motion off, the video muted. All four must leave the same correct picture in the viewer's head. List every mismatch and fix it.
 
-**Deliver:** explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4, `out/poster.jpg` and the `.srt`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
+**Deliver:** `script.md` (reels and stories), explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4, `out/poster.jpg` and the `.srt`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
 
 ## Common mistakes
 
