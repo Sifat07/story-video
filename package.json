@@ -5,8 +5,13 @@
   "description": "Agent skill: explain a topic as writing, a diagram, an interactive page and a narrated vertical video.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "playwright": "1.62.1"
+  },
+  "optionalDependencies": {
+    "kokoro-js": "1.2.1"
   }
 }

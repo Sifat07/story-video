@@ -1,8 +1,9 @@
 // story-video: renders <project>/scenes.json into <project>/out/<project>.mp4 (30 fps,
 // 1080x1920 portrait or 1920x1080 landscape), plus storyboard.md, <project>.srt captions,
 // sheet.jpg (visual check) and poster.jpg.
-// Voice: ElevenLabs when ELEVENLABS_API_KEY is set (env or ~/.elevenlabs.env), else macOS `say`,
-// else espeak-ng. VOICE=say|espeak|elevenlabs picks one; VOICE=say forces a free draft.
+// Voice: ElevenLabs when ELEVENLABS_API_KEY is set (env or ~/.elevenlabs.env), else Kokoro (local,
+// free, when kokoro-js is installed), else macOS `say`, else espeak-ng.
+// VOICE=kokoro|say|espeak|elevenlabs picks one; any free VOICE forces a free draft.
 // Usage: node build.mjs <project-dir>
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -39,13 +40,16 @@ function readKey() {
   catch (e) { console.warn(`can't read ${f} (${e.code}): no ElevenLabs`); return null; }
 }
 // A free draft never touches the key, so it can't bill by accident.
-const KEY = ["say", "espeak"].includes(process.env.VOICE) ? null : readKey();
+const KEY = ["kokoro", "say", "espeak"].includes(process.env.VOICE) ? null : readKey();
 const has = cmd => spawnSync("which", [cmd]).status === 0;
+// kokoro-js is an optional dependency: a failed install leaves the other voices working.
+const kokoroJs = await import("kokoro-js").catch(() => null);
 const ENGINE = process.env.VOICE ||
-  (KEY ? "elevenlabs" : platform() === "darwin" ? "say" : has("espeak-ng") ? "espeak" : null);
-if (!ENGINE) throw new Error("no voice: set ELEVENLABS_API_KEY, or install espeak-ng (free)");
+  (KEY ? "elevenlabs" : kokoroJs ? "kokoro" : platform() === "darwin" ? "say" : has("espeak-ng") ? "espeak" : null);
+if (!ENGINE) throw new Error("no voice: set ELEVENLABS_API_KEY, or run `npm install` for Kokoro (free)");
 if (ENGINE === "elevenlabs" && !KEY) throw new Error("VOICE=elevenlabs needs ELEVENLABS_API_KEY");
-if (!["elevenlabs", "say", "espeak"].includes(ENGINE)) throw new Error(`unknown VOICE=${ENGINE}`);
+if (ENGINE === "kokoro" && !kokoroJs) throw new Error(`VOICE=kokoro needs kokoro-js: run \`npm install\` in ${skill}`);
+if (!["elevenlabs", "kokoro", "say", "espeak"].includes(ENGINE)) throw new Error(`unknown VOICE=${ENGINE}`);
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, "frames"), { recursive: true });
@@ -81,8 +85,41 @@ async function eleven(spoken, speed) {
   return r;
 }
 
+// Kokoro (82M, runs locally on the CPU). The model loads once (first run downloads ~90 MB) and
+// returns audio only, so each sentence is voiced on its own: sentence starts are exact and the
+// words inside a sentence are placed by character position. Returns per-character start times.
+// Lines are cached in .voice-cache like ElevenLabs lines, so a visuals-only rebuild skips voicing.
+let kokoroModel;
+async function kokoro(spoken, file, speed) {
+  const voiceName = process.env.KOKORO_VOICE || "bm_george";
+  const hit = join(cache, createHash("sha1").update(JSON.stringify(["kokoro", voiceName, speed ?? 1, spoken])).digest("hex").slice(0, 16));
+  if (existsSync(hit + ".json")) { cachedLines++; copyFileSync(hit + ".wav", file); return JSON.parse(readFileSync(hit + ".json", "utf8")); }
+  kokoroModel ??= await kokoroJs.KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "cpu" });
+  const pcm = [], starts = [];
+  let t = 0, rate = 24000;
+  for (const m of spoken.matchAll(/[^.!?]+[.!?]*\s*/g)) {
+    const a = await kokoroModel.generate(m[0].trim(), { voice: voiceName, speed: speed ?? 1 });
+    rate = a.sampling_rate;
+    // Kokoro pads each sentence with ~0.35 s of silence; keep 0.15 s a side so sentences flow.
+    const pad = Math.round(0.15 * rate), loud = [...a.audio.keys()].filter(i => Math.abs(a.audio[i]) > 0.01);
+    const clip = a.audio.slice(Math.max(0, (loud[0] ?? 0) - pad), (loud.at(-1) ?? a.audio.length) + pad);
+    const d = clip.length / rate;
+    for (let c = 0; c < m[0].length; c++) starts[m.index + c] = t + c / m[0].length * d;
+    pcm.push(clip);
+    t += d;
+  }
+  const all = new Float32Array(pcm.reduce((n, a) => n + a.length, 0));
+  pcm.reduce((o, a) => (all.set(a, o), o + a.length), 0);
+  writeFileSync(file + ".f32", Buffer.from(all.buffer));
+  ff("-f", "f32le", "-ar", String(rate), "-ac", "1", "-i", file + ".f32", "-ar", "44100", file);
+  mkdirSync(cache, { recursive: true });
+  copyFileSync(file, hit + ".wav");
+  writeFileSync(hit + ".json", JSON.stringify(starts));
+  return starts;
+}
+
 // Voices one scene into `file` (mono wav). Returns its length and when each word starts:
-// exact from ElevenLabs timestamps, else estimated from the word's character position.
+// exact from ElevenLabs timestamps, per sentence from Kokoro, else estimated from the word's character position.
 // tempo: speeds up (or slows) the finished line without changing pitch, for models that
 // ignore `speed` (eleven_v3/v4). Word times scale with it, so captions stay in sync.
 async function voice(text, file, speed, tempo) {
@@ -94,7 +131,8 @@ async function voice(text, file, speed, tempo) {
     ff("-i", file + ".mp3", "-ar", "44100", "-ac", "1", file);
     if (r.alignment?.characters.join("") === spoken) starts = r.alignment.character_start_times_seconds;
   } else spoken = untag(spoken);
-  if (ENGINE === "say") {
+  if (ENGINE === "kokoro") starts = await kokoro(spoken, file, speed);
+  else if (ENGINE === "say") {
     execFileSync("say", ["-v", process.env.SAY_VOICE || "Daniel", "-r", process.env.SAY_RATE || "120", "-o", file + ".aiff", spoken]);
     ff("-i", file + ".aiff", "-ar", "44100", "-ac", "1", file);
   } else if (ENGINE === "espeak") {
@@ -114,7 +152,7 @@ async function voice(text, file, speed, tempo) {
   const shown = untag(text).split(/\s+/).filter(Boolean);
   const words = spans.map((m, k) => ({
     w: shown.length === spans.length ? shown[k] : m[0],
-    t: starts ? starts[m.index] : m.index / spoken.length * d,
+    t: starts?.[m.index] ?? m.index / spoken.length * d,
   }));
   return { d, words };
 }
@@ -140,7 +178,7 @@ for (const [i, s] of scenes.entries()) {
   parts.push(padded);
   start += s.dur;
 }
-if (cachedLines) console.log(`voice: ${cachedLines}/${scenes.length} lines from .voice-cache (not billed)`);
+if (cachedLines) console.log(`voice: ${cachedLines}/${scenes.length} lines from .voice-cache${ENGINE === "elevenlabs" ? " (not billed)" : ""}`);
 const total = start;
 writeFileSync(join(out, "storyboard.md"), board.join("\n") + "\n");
 writeFileSync(join(out, "concat.txt"), parts.map(p => `file '${p}'`).join("\n"));
