@@ -135,7 +135,8 @@
           // <image href="x.jpg"> inside the SVG resolves next to the SVG file, as it would in a browser.
           for (const im of box.querySelectorAll('image[href]')) {
             const src = new URL(im.getAttribute('href'), base + 'photos/' + f).href, pre = new Image();
-            im.setAttribute('href', src); pre.src = src; await pre.decode();
+            im.setAttribute('href', src); pre.src = src;
+            await pre.decode().catch(() => { throw new Error(`${f}: can't load <image href="${im.getAttribute('href')}"> (${src}); href is relative to the SVG`); });
           }
           // data-stagger="0.03" on a group: its children appear one after another from the group's time.
           for (const g of box.querySelectorAll('[data-stagger]')) {
@@ -148,23 +149,10 @@
         const img = new Image();
         img.src = base + 'photos/' + f; img.style.objectPosition = sc.pos || 'center';
         sc.el.append(img);
-        await img.decode();
+        await img.decode().catch(() => { throw new Error(`can't load photos/${f}`); });
       }
       photos.append(sc.el);
-      // Camera keyframes: each data-focus part, as a fraction of its box, measured while visible.
-      document.body.classList.toggle('card', !sc.bleed);
-      sc.el.style.display = 'block';
-      for (const box of sc.el.querySelectorAll('.svg')) {
-        const r0 = box.getBoundingClientRect();
-        box.focus = [...box.querySelectorAll('[data-focus]')].map(el => {
-          const r = el.getBoundingClientRect();
-          return { t: +(el.dataset.in ?? 0), z: +el.dataset.focus || 1.7,
-            x: (r.left + r.width / 2 - r0.left) / r0.width, y: (r.top + r.height / 2 - r0.top) / r0.height };
-        }).sort((a, b) => a.t - b.t);
-      }
-      sc.el.style.display = 'none';
     }
-    document.body.classList.remove('card');
     await document.fonts.ready;
     return true;
   };
@@ -192,10 +180,37 @@
       scenes.forEach(o => o.el && (o.el.style.display = o === s ? 'block' : 'none'));
       document.body.classList.toggle('card', !!s.photos && !s.bleed);
       document.body.classList.toggle('big', s.type === 'big');
-      // A word too long for the line ("Remontada" at 230px) shrinks until it fits.
+      // A word too long for the line ("Extraordinary" at 230px) shrinks until it fits.
       title.style.fontSize = '';
       for (let f = parseFloat(getComputedStyle(title).fontSize); f > 60 && title.scrollWidth > title.clientWidth + 1; f -= 6)
         title.style.fontSize = f + 'px';
+      if (s.el) {
+        // Portrait card: grows down to 64px above the text, so no dead band between them
+        // (and a long text block shrinks it rather than covering it).
+        const first = [...stage.querySelectorAll('.line')].find(el => el.offsetParent);
+        const portraitCard = !s.bleed && !document.body.classList.contains('landscape');
+        s.el.style.top = '';
+        let h = portraitCard && first ? Math.max(560, first.offsetTop - s.el.offsetTop - 64) : 0;
+        // A contained picture wider than that space: card hugs the picture, centred in the space.
+        const m = s.fit === 'contain' && h && s.el.querySelector('img, svg');
+        if (m) {
+          const vb = m.viewBox?.baseVal, fitH = s.el.offsetWidth / (vb?.width ? vb.width / vb.height : m.naturalWidth / m.naturalHeight);
+          if (fitH < h) { s.el.style.top = s.el.offsetTop + (h - fitH) / 2 + 'px'; h = fitH; }
+        }
+        s.el.style.height = h ? h + 'px' : '';
+        // Camera keyframes: each data-focus part, as a fraction of its box, measured at the final size.
+        // Untransformed: frames render out of order, so a box may still hold another frame's camera.
+        for (const box of s.el.querySelectorAll('.svg')) {
+          box.style.transform = '';
+          const r0 = box.getBoundingClientRect();
+          box.focus = [...box.querySelectorAll('[data-focus]')].map(el => {
+            el.style.transform = '';
+            const r = el.getBoundingClientRect();
+            return { t: +(el.dataset.in ?? 0), z: +el.dataset.focus || 1.7,
+              x: (r.left + r.width / 2 - r0.left) / r0.width, y: (r.top + r.height / 2 - r0.top) / r0.height };
+          }).sort((a, b) => a.t - b.t);
+        }
+      }
     }
     // Lines rise in one after another. "fade": slow rise, fade out in the last 0.25 s (exits are quicker than entries).
     // "cut": quick snap in, no fade out (the next scene cuts in hard). The final scene never fades.
