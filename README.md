@@ -25,7 +25,7 @@ Then ask your agent to "explain how X works" or "make a reel about Y". It reads 
 ## Render by hand
 
 ```bash
-VOICE=say node ~/.claude/skills/story-video/build.mjs path/to/project   # free draft
+VOICE=kokoro node ~/.claude/skills/story-video/build.mjs path/to/project   # free draft
 node ~/.claude/skills/story-video/build.mjs path/to/project             # final
 ```
 
@@ -35,8 +35,9 @@ node ~/.claude/skills/story-video/build.mjs path/to/project             # final
 
 | Voice | When | Cost |
 | --- | --- | --- |
-| macOS `say` | No key on macOS, or `VOICE=say` | Free |
-| espeak-ng | No key elsewhere (`apt install espeak-ng`), or `VOICE=espeak` | Free, robotic; fine for drafts |
+| Kokoro (local, 82M) | No key and `kokoro-js` installed (an optional dependency of `npm install`), or `VOICE=kokoro`. `KOKORO_VOICE` picks the voice (default `bm_george`; others such as `bm_daniel`, `bf_emma`, `am_michael`, `af_heart`) | Free; natural, runs on the CPU (about half real time). First run downloads ~90 MB. Sentence starts are exact, words inside a sentence estimated |
+| macOS `say` | No key and no Kokoro on macOS, or `VOICE=say` | Free |
+| espeak-ng | No key and no Kokoro elsewhere (`apt install espeak-ng`), or `VOICE=espeak` | Free, robotic; fine for drafts |
 | ElevenLabs | `ELEVENLABS_API_KEY` in the environment or `~/.elevenlabs.env` | Billed per new line. Lines are cached in `<project>/.voice-cache/`, so rebuilds re-bill only changed text |
 | ElevenLabs Music | Key set and `scenes.json` has `music` | Billed once; saved as `music.mp3` and reused (looped if the cut grows) |
 

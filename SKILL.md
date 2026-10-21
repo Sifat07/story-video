@@ -43,7 +43,7 @@ The same SVG feeds the page and the video, so: transparent background, at least 
 - `data-stagger="0.03"` on a `<g>` with `data-at`/`data-in`: its children appear one after another, 0.03 s apart, in document order (sort them, e.g. west to east, for a sweep). Keep the total under ~2.5 s.
 - **Camera on a photo:** wrap the photo in an SVG (`<image href="x.jpg">` at the photo's pixel size; `href` is relative to the SVG, so a photo beside it in `photos/` is just its name) and add invisible `<rect data-at="…" data-focus="1.6" fill="none">` over the faces or the flag; the camera moves there when the phrase is spoken. No template change.
 
-Word times are exact with ElevenLabs and estimated with the free voices, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
+Word times are exact with ElevenLabs, exact per sentence with Kokoro, and estimated with `say` and espeak, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
 
 **Check:** after one glance, a viewer can say the main relationship out loud.
 
@@ -71,8 +71,8 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 
 **Steps**
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
-2. Style frames before any full render: `STILLS=1 VOICE=say node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it.
-3. Draft for free: `VOICE=say node <skill>/build.mjs <project>` on macOS, `VOICE=espeak` with espeak-ng on Linux. Free pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it. A free `VOICE` never reads the ElevenLabs key, so a draft cannot bill. Inside a command sandbox `say` writes silence and the build stops with "wrote no audio": run it outside the sandbox or use `VOICE=espeak`.
+2. Style frames before any full render: `STILLS=1 VOICE=kokoro node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it.
+3. Draft for free: `VOICE=kokoro node <skill>/build.mjs <project>` (local Kokoro voice, any OS; `KOKORO_VOICE` picks it, default `bm_george`; first run downloads ~90 MB). Kokoro paces close to a final; `scenes.json` `speed` also sets its pace. Without Kokoro: `VOICE=say` on macOS, `VOICE=espeak` with espeak-ng on Linux, whose pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it. A free `VOICE` never reads the ElevenLabs key, so a draft cannot bill. Inside a command sandbox `say` writes silence and the build stops with "wrote no audio": run it outside the sandbox or use `VOICE=espeak`.
 4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
 5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside the mode's wpm range: set `tempo` (free, reuses cached lines) or, on `eleven_multilingual_v2` only, `speed` (re-voices and bills every changed line), for the whole video or one scene, and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
 
