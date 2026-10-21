@@ -1,0 +1,41 @@
+{
+  "mode": "reel",
+  "captions": true,
+  "scenes": [
+    {
+      "id": "crowded",
+      "purpose": "Expect: text crowds the picture; small.jpg soft; one photo holds over 3 s",
+      "vo": "This card carries far more words than its picture leaves room for, so the text runs into it.",
+      "photos": [
+        "small.jpg"
+      ],
+      "kicker": "Check",
+      "title": "A title that keeps going and going on",
+      "sub": "A sub that goes on, line after line after line, more and more words, until the block climbs into the picture card above it and keeps on climbing, line after line, more and more words, still more words, and yet more words again, line after line after line. A sub that goes on, line after line after line, more and more words, until the block climbs into the picture card above it and keeps on climbing, line after line, more and more words, still more words, and yet more words again, line after line after line."
+    },
+    {
+      "id": "soft",
+      "purpose": "Expect: small.jpg shown well above its size",
+      "vo": "A small photo, full frame.",
+      "type": "big",
+      "bleed": true,
+      "photos": [
+        "small.jpg"
+      ],
+      "title": "Soft"
+    },
+    {
+      "id": "wide",
+      "purpose": "Expect: text runs off the frame",
+      "vo": "One word too wide.",
+      "type": "big",
+      "title": "Pneumonoultramicroscopicsilicovolcanoconiosis"
+    },
+    {
+      "id": "ok",
+      "purpose": "Expect: no warning",
+      "vo": "Fine.",
+      "title": "Fine"
+    }
+  ]
+}

@@ -167,9 +167,10 @@ const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --
 for (const [i, s] of scenes.entries()) {
   const raw = join(out, `vo-${i}.wav`), padded = join(out, `seg-${i}.wav`);
   Object.assign(s, await voice(s.vo, raw, s.speed ?? speed, s.tempo ?? tempo));
-  // Target words per minute (pauses included) by mode. Only the final voice is judged.
+  // Target words per minute (pauses included) by mode, judged on the voices that pace like a
+  // final (ElevenLabs, Kokoro); say and espeak are too rough.
   const wpm = Math.round(s.words.length / s.d * 60);
-  if (ENGINE === "elevenlabs" && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
+  if (["elevenlabs", "kokoro"].includes(ENGINE) && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
   const shown = [s.kicker, s.title, s.sub].filter(Boolean).map(h => h.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).join(" / ");
   board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
   s.start = start;
@@ -333,6 +334,19 @@ const pages = await Promise.all(Array.from({ length: Math.min(4, Math.max(1, cpu
 }));
 // "Settled" = just before the fade-out, so animated diagrams are fully built.
 const settled = s => s.start + Math.max(s.dur - 0.5, Math.min(2, s.dur - 0.45));
+// 2a. Checks before the long render: layout on each settled frame (the template's optional
+// window.check), and in a reel any photo held still over 3 s. Warnings only.
+for (const s of scenes) {
+  const warn = [];
+  if (await pages[0].evaluate(() => !!window.check)) {
+    await pages[0].evaluate(t => window.render(t), settled(s));
+    warn.push(...await pages[0].evaluate(() => window.check()));
+  }
+  const still = (s.photos ?? []).filter(f => !f.endsWith(".svg"));
+  if (mode === "reel" && still.length && still.length === s.photos.length && s.dur / still.length > 3)
+    warn.push(`one photo holds ${(s.dur / still.length).toFixed(1)} s: add a second photo, or put it in an SVG with a data-focus camera`);
+  for (const w of warn) console.log(`check: scene ${s.id}: ${w}`);
+}
 // STILLS=1: style frames only, one settled frame per scene in out/stills/, no video.
 // Cheap way to compare looks (colors, theme, art) before a full render.
 if (process.env.STILLS) {
