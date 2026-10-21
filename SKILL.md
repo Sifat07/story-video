@@ -72,7 +72,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 **Steps**
 0. Reel, story, or an explainer built on one event: run `<skill>/story.md` first. It writes `<project>/script.md` (brief, story bank, hooks, beats, draft, checks); the owner reviews it before any render, and `scenes.json` narration comes from its draft.
 1. Write `scenes.json` (below). Put images, including `diagram.svg`, in `photos/`.
-2. Style frames before any full render: `STILLS=1 VOICE=kokoro node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it. Every build (stills included) first prints `check:` lines: text off the frame, text crowding or covering the picture, captions over the text, a photo shown over 1.5× its pixels (it looks soft), and in a reel a photo held over 3 s. Fix each before the full render; they are warnings, so the build goes on. `examples/check-fixture` trips every one.
+2. Style frames before any full render: `STILLS=1 VOICE=kokoro node <skill>/build.mjs <project>` writes one settled frame per scene to `out/stills/` and stops (no video, no paid music or effects). With no fixed look yet, make three directions (say, different `colors`, `theme` or art) and pick one by eye; with a fixed look, check three key scenes in it. Every build (stills included) first prints `check:` lines: text off the frame, text crowding or covering the picture, captions over the text, a photo shown over 1.5× its pixels (it looks soft), and in a reel a photo unchanged for over 3 s (reframes count as a change, so split a long sentence). Fix each before the full render; they are warnings, so the build goes on. `examples/check-fixture` trips every one.
 3. Draft for free: `VOICE=kokoro node <skill>/build.mjs <project>` (local Kokoro voice, any OS; `KOKORO_VOICE` picks it, default `bm_george`; first run downloads ~90 MB). Kokoro paces close to a final; `scenes.json` `speed` also sets its pace. Without Kokoro: `VOICE=say` on macOS, `VOICE=espeak` with espeak-ng on Linux, whose pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it. A free `VOICE` never reads the ElevenLabs key, so a draft cannot bill. Inside a command sandbox `say` writes silence and the build stops with "wrote no audio": run it outside the sandbox or use `VOICE=espeak`.
 4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
 5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside the mode's wpm range (also with Kokoro): set `tempo` (free, reuses cached lines) or, on `eleven_multilingual_v2` only, `speed` (re-voices and bills every changed line), for the whole video or one scene, and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
@@ -114,7 +114,8 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `sub` | Line under the title; HTML, `data-at` works here too |
 | `photos` | Paths relative to `photos/` (jpg, png, svg); `../diagram.svg` reuses the root diagram without a copy. Several crossfade. SVGs are inlined, so an `<image href="x.jpg">` inside one resolves next to the SVG file (so `x.jpg`, not `photos/x.jpg`) |
 | `fit: "contain"` | Whole image on a card (`colors.card`): diagrams, documents, wide group photos |
-| `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame |
+| `pos` | CSS `object-position`, e.g. `"center 22%"` to keep faces in frame. With `pos` set, reframes only zoom, so the faces stay in |
+| `reframe` | Reels (default `true`): each photo pans to a new framing on every sentence, and on a comma, semicolon or colon at least 1.5 s from other changes. Pans use the part a full-frame crop hides, so they cost no sharpness. `false` for the whole video or one scene; `true` to use it in an explainer |
 | `bleed: true` | Image fills the frame behind a scrim |
 | `logo: true` | Show `logo.png` from the project folder above the text |
 | `poster: true` | This scene's settled frame becomes `out/poster.jpg` and frame 0 (the thumbnail). Default: last scene. Pick a scene with an image |
@@ -160,7 +161,7 @@ Check each form alone: the text alone, the diagram alone, the page with motion o
 
 ## Common mistakes
 
-- **A flat reel:** the same layout scene after scene, a static picture held for more than 3 s, a slow voice, a quiet first second. Vary `type`, `bleed` and card scenes; tag diagrams and titles with `data-at`.
+- **A flat reel:** the same layout scene after scene, one long sentence over a static picture (reframes come on sentences and clauses), a slow voice, a quiet first second. Vary `type`, `bleed` and card scenes; tag diagrams and titles with `data-at`.
 - **Paying for drafts:** draft with a free voice. The cache saves unchanged lines, but every new wording of a line is billed.
 - **Overwriting a good render:** each build wipes `out/`; copy `out/<folder>.mp4` aside first.
 - **Music shorter than the cut:** it loops, which can be audible. Delete `music.mp3` to regenerate at the new length (paid).

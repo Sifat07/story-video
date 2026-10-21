@@ -21,10 +21,12 @@ const FORMATS = { portrait: [1080, 1920], landscape: [1920, 1080] };
 // ElevenLabs "George" (stock voice). Override with ELEVENLABS_VOICE_ID.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 const { model: MODEL = "eleven_multilingual_v2", music: MUSIC_PROMPT, theme, colors, pronounce = {}, captions, format = "portrait", speed, tempo = 1, foreign = [], mode = "explainer",
-  transition, scenes } = JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
+  transition, reframe, scenes } = JSON.parse(readFileSync(join(here, "scenes.json"), "utf8"));
 // mode "reel": faster pace and hard cuts by default; "explainer": calmer pace and fades.
 const [WPM_LO, WPM_HI] = mode === "reel" ? [150, 185] : [130, 165];
 for (const s of scenes) s.transition ??= transition ?? (mode === "reel" ? "cut" : "fade");
+// Reels reframe each photo on every new sentence (template); explainers keep the slow push-in.
+for (const s of scenes) s.reframe ??= reframe ?? mode === "reel";
 if (!FORMATS[format]) throw new Error(`format must be one of: ${Object.keys(FORMATS).join(", ")}`);
 const [W, H] = FORMATS[format];
 
@@ -174,6 +176,12 @@ for (const [i, s] of scenes.entries()) {
   const shown = [s.kicker, s.title, s.sub].filter(Boolean).map(h => h.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).join(" / ");
   board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
   s.start = start;
+  // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
+  // fall 1.5 s or more from any other, so a long sentence still moves. The template uses them.
+  const after = re => s.words.filter((_, k) => k && re.test(s.words[k - 1].w)).map(x => +(LEAD + x.t).toFixed(2));
+  s.beats = after(/[.!?]["'”’)»]*$/);
+  for (const t of after(/[,;:]["'”’)»]*$/)) if ([0, ...s.beats].every(b => Math.abs(t - b) >= 1.5)) s.beats.push(t);
+  s.beats.sort((x, y) => x - y);
   s.dur = LEAD + s.d + (i === scenes.length - 1 ? END_HOLD : TAIL);
   ff("-i", raw, "-af", `adelay=${LEAD * 1000}:all=1,apad=whole_dur=${s.dur}`, padded);
   parts.push(padded);
@@ -342,9 +350,13 @@ for (const s of scenes) {
     await pages[0].evaluate(t => window.render(t), settled(s));
     warn.push(...await pages[0].evaluate(() => window.check()));
   }
+  // Longest stretch with nothing new: photos switch in equal slices, reframes come on sentences.
   const still = (s.photos ?? []).filter(f => !f.endsWith(".svg"));
-  if (mode === "reel" && still.length && still.length === s.photos.length && s.dur / still.length > 3)
-    warn.push(`one photo holds ${(s.dur / still.length).toFixed(1)} s: add a second photo, or put it in an SVG with a data-focus camera`);
+  if (mode === "reel" && still.length && still.length === s.photos.length) {
+    const at = [0, ...still.map((_, k) => k * s.dur / still.length), ...(s.reframe ? s.beats : []), s.dur].sort((a, b) => a - b);
+    const hold = Math.max(...at.slice(1).map((t, k) => t - at[k]));
+    if (hold > 3) warn.push(`one photo holds ${hold.toFixed(1)} s unchanged: split the sentence, add a second photo, or put it in an SVG with a data-focus camera`);
+  }
   for (const w of warn) console.log(`check: scene ${s.id}: ${w}`);
 }
 // STILLS=1: style frames only, one settled frame per scene in out/stills/, no video.
