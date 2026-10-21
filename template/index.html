@@ -91,7 +91,7 @@
     return 1 - Math.exp(-damp * w * t) * (Math.cos(wd * t) + damp * w / wd * Math.sin(wd * t));
   };
   const lerp = (a, b, p) => a + (b - a) * p;
-  let scenes = [], cues = [], current = -1, hasLogo = false, Y0 = 0, Y1 = 1;
+  let scenes = [], cues = [], current = -1, lastLt = 0, hasLogo = false, Y0 = 0, Y1 = 1;
   const yearX = y => (y - Y0) / (Y1 - Y0) * 100;
 
   // cfg: { scenes (with start, dur in seconds, transition "fade" | "cut"), base (project dir URL),
@@ -153,6 +153,10 @@
       }
       photos.append(sc.el);
     }
+    // Load the faces now: fonts.ready alone resolves before any text asks for them, and the card
+    // would be sized with fallback metrics, then the real font rewraps the text into it.
+    await Promise.all(['600 132px Fraunces', 'italic 500 132px Fraunces', '400 46px "Work Sans"', '600 48px "Work Sans"', '500 34px "Geist Mono"']
+      .map(f => document.fonts.load(f)));
     await document.fonts.ready;
     return true;
   };
@@ -173,6 +177,7 @@
   window.render = (t, opts = {}) => {
     const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
     const s = scenes[i], lt = t - s.start, cut = s.transition === 'cut';
+    lastLt = lt;
     if (i !== current) {
       current = i;
       kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.innerHTML = s.sub || '';
@@ -299,6 +304,38 @@
       const prev = scenes[i - 1]?.year ?? s.year;
       dot.style.left = yearX(prev + (s.year - prev) * ease(lt / 0.9)) + '%';
     }
+  };
+
+  // Layout check of the frame last drawn (build.mjs calls it on each scene's settled frame and
+  // prints what it returns; the build goes on). Optional: an own template may leave it out.
+  const meets = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const named = src => decodeURIComponent(src.split('/').pop());
+  window.check = async () => {
+    const s = scenes[current], warn = [];
+    const text = [...stage.querySelectorAll('.line')].filter(el => el.offsetParent && (el.id === 'logo' || el.textContent.trim()))
+      .map(el => el.getBoundingClientRect());
+    if (text.some(r => r.top < 0 || r.left < 0 || r.bottom > innerHeight || r.right > innerWidth)) warn.push('text runs off the frame: shorten the title or sub');
+    if (title.scrollWidth > title.clientWidth + 1) warn.push('a title word is too wide even at the smallest size');
+    // The card shrinks to make room for the text (to a 560 px floor), so a long block first crowds it, then covers it.
+    const c = s.el && !s.bleed && s.el.getBoundingClientRect();
+    const near = c && { left: c.left, right: c.right, top: c.top - 24, bottom: c.bottom + 24 };
+    if (near && text.some(r => meets(r, near))) warn.push('text crowds or covers the picture: shorten the text block');
+    if (cap.style.display === 'block' && text.some(r => meets(r, cap.firstElementChild.getBoundingClientRect()))) warn.push('captions cover the text');
+    // Photos shown bigger than their pixels look soft. Measured as drawn (push-in included), then
+    // scaled to the camera's closest zoom in that picture.
+    for (const el of s.el?.children ?? []) {
+      const pics = el.tagName === 'IMG' ? [[el, el.src, s.fit === 'contain' ? 'meet' : 'slice']]
+        : [...el.querySelectorAll('image[href]')].map(im => [im, im.getAttribute('href'), im.getAttribute('preserveAspectRatio') ?? 'meet']);
+      const zoom = el.focus?.length ? Math.max(1, ...el.focus.map(f => f.z)) / camera(el.focus, lastLt).z : 1;
+      for (const [node, src, ar] of pics) {
+        const r = node.getBoundingClientRect(), im = new Image();
+        im.src = src; await im.decode().catch(() => {});
+        if (!im.naturalWidth) continue;
+        const k = Math[ar.includes('slice') ? 'max' : 'min'](r.width / im.naturalWidth, r.height / im.naturalHeight) * zoom;
+        if (k > 1.5) warn.push(`${named(src)} is shown at ${k.toFixed(1)}x its size (${im.naturalWidth} px wide): it will look soft; use a bigger file or a card instead of a full-frame photo`);
+      }
+    }
+    return warn;
   };
 </script>
 </body>
