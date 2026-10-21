@@ -31,7 +31,7 @@ node ~/.claude/skills/story-video/build.mjs path/to/project             # final
 
 `path/to/project` holds `scenes.json` and `photos/`. Output lands in `path/to/project/out/`: `<project>.mp4`, `<project>.srt`, `poster.jpg`, `sheet.jpg` (a contact sheet for checking every scene) and `storyboard.md`, plus intermediate audio files. `out/` is rebuilt on every run; frames render in four browser pages at once (about a minute for a 80 s video on a laptop). Set `"format": "landscape"` for 16:9 and `"captions": true` to burn captions in. See `SKILL.md` for every `scenes.json` field, and `examples/` for a complete project.
 
-Before the long render, each build prints `check:` warnings from one settled frame per scene: text off the frame or crowding the picture, captions over text, photos shown over 1.5× their pixels, and reel photos held over 3 s. `STILLS=1 VOICE=kokoro node build.mjs examples/check-fixture` shows every one.
+Before the long render, each build prints `check:` warnings from one settled frame per scene: text off the frame or crowding the picture, captions over text, photos shown over 1.5× their pixels, and reel photos unchanged for over 3 s. In a reel, each photo reframes on every sentence. `STILLS=1 VOICE=kokoro node build.mjs examples/check-fixture` shows every one.
 
 ## Voice and cost
 
