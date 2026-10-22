@@ -12,7 +12,8 @@
   body.light { --bg:#f6f1e7; --ink:#26231f; --muted:#6b645a; --kicker:#2f7f7a; --accent:#d0644a; --line:#d9d0bf; --scrim:rgba(246,241,231,.85); }
   * { margin:0; box-sizing:border-box; }
   html, body { width:100vw; height:100vh; background:var(--bg); overflow:hidden; color:var(--ink); }
-  #stage { position:absolute; inset:0; padding:0 96px; display:flex; flex-direction:column; justify-content:center; }
+  /* Portrait keeps 180 px clear on the right: the Reels apps put their buttons there. */
+  #stage { position:absolute; inset:0; padding:0 180px 0 96px; display:flex; flex-direction:column; justify-content:center; }
   .line { will-change:transform,opacity; }
   #kicker { font:500 34px/1 "Geist Mono", monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--kicker); margin-bottom:56px; }
   #title { font:600 132px/1.02 Fraunces, Georgia, serif; letter-spacing:-.02em; }
@@ -37,13 +38,18 @@
   body.card #sub { margin-top:36px; }
   /* Captions: one short cue at a time, above the reel UI band. */
   /* The word being spoken is lit in the accent colour. */
-  #cap { position:absolute; left:64px; right:64px; bottom:260px; text-align:center; display:none; }
+  #cap { position:absolute; left:180px; right:180px; bottom:260px; text-align:center; display:none; }
   #cap > span { font:600 48px/1.35 "Work Sans", sans-serif; color:var(--ink); background:var(--scrim); padding:8px 22px; border-radius:10px; }
   #cap b { font-weight:inherit; }
   #cap .on { color:var(--accent); }
   #cap .fx { font-style:italic; }
   body.captions.card #stage { padding-bottom:400px; }
-  body.captions #rail { bottom:180px; }
+  /* Portrait: the rail sits where the captions would (above the reel UI band), or above them;
+     ticks go above the line and it stops short of the Reels buttons on the right. */
+  body:not(.landscape) #rail { right:180px; bottom:260px; }
+  body:not(.landscape) .tick { top:-46px; }
+  body:not(.landscape).captions #rail { bottom:380px; }
+  body:not(.landscape).captions.card #stage { padding-bottom:460px; }
   /* "format": "landscape" (1920x1080): card on the right, text on the left. */
   body.landscape #stage { padding:0 140px; }
   body.landscape #title { font-size:120px; }
@@ -58,7 +64,7 @@
   body.landscape.captions .photo:not(.bleed) { bottom:150px; }
   body.landscape.captions #rail { bottom:200px; }
   /* "type": "big": one huge centred line, for hooks and numbers. */
-  body.big #stage { align-items:center; text-align:center; padding:0 64px; }
+  body.big #stage { align-items:center; text-align:center; padding:0 180px; }
   body.big #title { font-size:230px; line-height:.95; }
   body.big #sub { margin-top:48px; }
   body.big.landscape #title { font-size:200px; }
@@ -346,6 +352,13 @@
     const near = c && { left: c.left, right: c.right, top: c.top - 24, bottom: c.bottom + 24 };
     if (near && text.some(r => meets(r, near))) warn.push('text crowds or covers the picture: shorten the text block');
     if (cap.style.display === 'block' && text.some(r => meets(r, cap.firstElementChild.getBoundingClientRect()))) warn.push('captions cover the text');
+    // Instagram and Facebook Reels cover the right edge below the middle (like, comment, share)
+    // and the bottom (account name, post text). Measured on both apps, October 2026.
+    if (!document.body.classList.contains('landscape')) {
+      const ui = [{ left: 900, right: innerWidth, top: 900, bottom: innerHeight }, { left: 0, right: innerWidth, top: 1700, bottom: innerHeight }];
+      const shown = cap.style.display === 'block' ? [...text, cap.firstElementChild.getBoundingClientRect()] : text;
+      if (shown.some(r => ui.some(u => meets(r, u)))) warn.push('text sits under the Reels buttons or account name: keep it left of x 900 below y 900, and above y 1700');
+    }
     // Photos shown bigger than their pixels look soft. Measured as drawn (push-in included), then
     // scaled to the camera's (or the reframes') closest zoom in that picture.
     for (const el of s.el?.children ?? []) {
