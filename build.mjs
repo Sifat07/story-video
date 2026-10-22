@@ -196,8 +196,8 @@ writeFileSync(join(out, "concat.txt"), parts.map(p => `file '${p}'`).join("\n"))
 ff("-f", "concat", "-safe", "0", "-i", join(out, "concat.txt"), join(out, "narration.wav"));
 console.log(`length: ${total.toFixed(1)} s`);
 
-// 1b. Captions: one cue per clause (split at punctuation); a clause over 34 characters
-// (one line) splits into even parts. Always written as an .srt to upload; burned into
+// 1b. Captions: one cue per clause (split at punctuation); a clause over one line (28
+// characters portrait, whose captions keep clear of the Reels buttons; 34 landscape) splits into even parts. Always written as an .srt to upload; burned into
 // the frames when scenes.json has "captions": true.
 // `foreign`: phrases in another language ("mise en place", "Bon appétit!"), set in italics in captions.
 const plain = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
@@ -205,17 +205,17 @@ for (const s of scenes) for (const f of foreign) {
   const want = f.split(/\s+/).map(plain).filter(Boolean), ws = s.words.map(x => plain(x.w));
   ws.forEach((_, k) => { if (want.length && want.every((w, j) => ws[k + j] === w)) want.forEach((_, j) => s.words[k + j].i = true); });
 }
-const cues = [];
+const cues = [], LINE = format === "portrait" ? 28 : 34;
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
   const clauses = [[]];
   s.words.forEach((x, k) => { clauses.at(-1).push(x); if (/[.!?;:,]$/.test(x.w) && k < s.words.length - 1) clauses.push([]); });
   // A tiny clause ("Online,") joins the next one when both fit on one line.
   for (let k = clauses.length - 2; k >= 0; k--)
-    if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= 34)
+    if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= LINE)
       clauses.splice(k, 2, [...clauses[k], ...clauses[k + 1]]);
   const parts = clauses.flatMap(c => {
-    const n = Math.ceil(line(c).length / 34), target = line(c).length / n, out = [[]];
+    const n = Math.ceil(line(c).length / LINE), target = line(c).length / n, out = [[]];
     for (const x of c) {
       if (out.at(-1).length && out.length < n && line([...out.at(-1), x]).length > target + 4) out.push([]);
       out.at(-1).push(x);
