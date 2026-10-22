@@ -76,6 +76,7 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 3. Draft for free: `VOICE=kokoro node <skill>/build.mjs <project>` (local Kokoro voice, any OS; `KOKORO_VOICE` picks it, default `bm_george`; first run downloads ~90 MB). Kokoro paces close to a final; `scenes.json` `speed` also sets its pace. Without Kokoro: `VOICE=say` on macOS, `VOICE=espeak` with espeak-ng on Linux, whose pacing is rough; `SAY_RATE` (default 120 for `say`, 140 for espeak), `SAY_VOICE` (default Daniel) and `ESPEAK_VOICE` (default en-gb) tune it. A free `VOICE` never reads the ElevenLabs key, so a draft cannot bill. Inside a command sandbox `say` writes silence and the build stops with "wrote no audio": run it outside the sandbox or use `VOICE=espeak`.
 4. Review `out/sheet.jpg` (one row per scene: fading in, settled, fading out): fix overflow, collisions, weak contrast, muddy half-faded frames. Read `out/storyboard.md` (timecodes, narration, on-screen text, wpm). Watch the mp4.
 5. Final: the same command without `VOICE` (uses ElevenLabs when a key is set). It prints any scene outside the mode's wpm range (also with Kokoro): set `tempo` (free, reuses cached lines) or, on `eleven_multilingual_v2` only, `speed` (re-voices and bills every changed line), for the whole video or one scene, and rebuild. Voiced lines are cached in `.voice-cache/`, so a rebuild bills only lines whose text or speed changed.
+6. Scored review, after every full render: look at `out/review.jpg` (20 evenly spaced frames at phone size) as a hard-to-please creative director. Score each out of 10: **readability on a phone** (every word read at that size, nothing under platform buttons), **continuity** (one look, the next picture grows from the last), **sync** (from `out/storyboard.md` and the mp4: words land as they are spoken), **polish** (no muddy frames, no collisions, no stray defaults). Name the three biggest weaknesses, fix them, rebuild. Stop when every score is 8 or more. Write one line per version in `out/versions/changes.md` (`v3: shortened scene 4 title, moved captions up`).
 
 ### scenes.json
 
@@ -157,13 +158,13 @@ Avoid the default "AI look":
 
 Check each form alone: the text alone, the diagram alone, the page with motion off, the video muted. All four must leave the same correct picture in the viewer's head. List every mismatch and fix it.
 
-**Deliver:** `script.md` (reels and stories), explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4, `out/poster.jpg` and the `.srt`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
+**Deliver:** `script.md` (reels and stories), explanation, diagram (+ source and alt text), `page.html`, `out/storyboard.md`, the mp4, the four review scores and `out/versions/changes.md`, `out/poster.jpg` and the `.srt`, accessibility notes, and the folder listing. A concept, moodboard or mockup is not a delivery.
 
 ## Common mistakes
 
 - **A flat reel:** the same layout scene after scene, one long sentence over a static picture (reframes come on sentences and clauses), a slow voice, a quiet first second. Vary `type`, `bleed` and card scenes; tag diagrams and titles with `data-at`.
 - **Paying for drafts:** draft with a free voice. The cache saves unchanged lines, but every new wording of a line is billed.
-- **Overwriting a good render:** each build wipes `out/`; copy `out/<folder>.mp4` aside first.
+- **Losing a good render:** every build is kept in `out/versions/` as v1, v2, … Deleting `out/` deletes them too; copy a version you post somewhere safe.
 - **Music shorter than the cut:** it loops, which can be audible. Delete `music.mp3` to regenerate at the new length (paid).
 - **Motion off after a rewrite:** `data-at` follows the words, `data-in` times do not. Prefer `data-at`; a build that stops on a missing phrase means the narration changed.
 - **Guessed facts:** check claims against the source (code, docs, records) and cite them in `explanation.md`.

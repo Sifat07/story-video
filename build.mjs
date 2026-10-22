@@ -7,7 +7,7 @@
 // Usage: node build.mjs <project-dir>
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { cpus, homedir, platform } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -53,8 +53,10 @@ if (ENGINE === "elevenlabs" && !KEY) throw new Error("VOICE=elevenlabs needs ELE
 if (ENGINE === "kokoro" && !kokoroJs) throw new Error(`VOICE=kokoro needs kokoro-js: run \`npm install\` in ${skill}`);
 if (!["elevenlabs", "kokoro", "say", "espeak"].includes(ENGINE)) throw new Error(`unknown VOICE=${ENGINE}`);
 
-rmSync(out, { recursive: true, force: true });
-mkdirSync(join(out, "frames"), { recursive: true });
+// out/ is rebuilt on every run, except out/versions/: every finished video is kept there as v1, v2, ...
+mkdirSync(out, { recursive: true });
+for (const f of readdirSync(out)) if (f !== "versions") rmSync(join(out, f), { recursive: true, force: true });
+mkdirSync(join(out, "frames"));
 
 const ff = (...args) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...args]);
 const duration = f =>
@@ -392,6 +394,12 @@ scenes.flatMap(s => [s.start + 0.4, settled(s), s.start + s.dur - 0.17])
   .forEach((t, k) => copyFileSync(frameFile(Math.round(t * FPS)), join(out, "check", `${String(k).padStart(3, "0")}.jpg`)));
 ff("-i", join(out, "check", "%03d.jpg"), "-vf", `scale=${format === "portrait" ? 270 : 480}:-1,tile=3x${scenes.length}`, "-frames:v", "1", join(out, "sheet.jpg"));
 rmSync(join(out, "check"), { recursive: true });
+// 2d. Review sheet: 20 evenly spaced frames at phone size, for the scored review in SKILL.md.
+mkdirSync(join(out, "review"));
+for (let k = 0; k < 20; k++)
+  copyFileSync(frameFile(Math.floor((k + 0.5) * frames / 20)), join(out, "review", `${String(k).padStart(2, "0")}.jpg`));
+ff("-i", join(out, "review", "%02d.jpg"), "-vf", `scale=${format === "portrait" ? 270 : 480}:-1,tile=5x4`, "-frames:v", "1", join(out, "review.jpg"));
+rmSync(join(out, "review"), { recursive: true });
 copyFileSync(join(out, "poster.jpg"), frameFile(0));
 
 // 3. Encode.
@@ -400,4 +408,8 @@ ff("-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg"), "-i", sound
   "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
   "-movflags", "+faststart", mp4);
 rmSync(join(out, "frames"), { recursive: true });
-console.log(`done: ${mp4}`);
+const versions = join(out, "versions");
+mkdirSync(versions, { recursive: true });
+const version = join(versions, `v${readdirSync(versions).filter(f => f.endsWith(".mp4")).length + 1}.mp4`);
+copyFileSync(mp4, version);
+console.log(`done: ${mp4} (kept as ${version})`);
