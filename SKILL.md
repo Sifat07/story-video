@@ -154,6 +154,13 @@ Avoid the default "AI look":
 | Emoji icons, SVG faces | Abstract shapes; real photos for people |
 | Generated "archive" pictures | Real photos with credit, or drawings that are plainly drawings |
 
+**No photo for a moment?** In this order:
+1. A real photo from someone who was there, credited.
+2. Drawn art (an SVG): plainly a drawing, so it claims nothing. Label it illustration.
+3. A generated (AI) image, only for scenery that claims nothing: a texture, a mood, a generic place or object with no one identifiable in it. Label it on screen (`<small>Illustration (AI)</small>`).
+
+Never generate a realistic picture of a real person, or of a moment that happened (it reads as a record of the event). Never generate a logo, crest, kit, product or document. Platforms ask for disclosure of photorealistic AI video or audio: Meta requires its AI-disclosure tool when posting it to Facebook or Instagram and may penalise content that isn't disclosed ([Meta, Misinformation policy](https://transparency.meta.com/policies/community-standards/misinformation/)).
+
 ## Final review
 
 Check each form alone: the text alone, the diagram alone, the page with motion off, the video muted. All four must leave the same correct picture in the viewer's head. List every mismatch and fix it.
