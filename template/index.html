@@ -114,8 +114,14 @@
     if (years.length > 1) {
       [Y0, Y1] = [years[0], years.at(-1)];
       const n = Math.min(5, years.length);
+      // Ticks closer than 10% of the rail overlap on a narrow rail (2011 next to 2012 on 2011–2026): keep the first, and the last over its neighbour.
+      const ticks = [];
       for (let k = 0; k < n; k++) {
         const y = years[Math.round(k * (years.length - 1) / (n - 1))];
+        if (ticks.length && yearX(y) - yearX(ticks.at(-1)) < 10) { if (k < n - 1 || ticks.length < 2) continue; ticks.pop(); }
+        ticks.push(y);
+      }
+      for (const y of ticks) {
         const t = document.createElement('div');
         t.className = 'tick'; t.style.left = yearX(y) + '%'; t.textContent = y;
         rail.append(t);
