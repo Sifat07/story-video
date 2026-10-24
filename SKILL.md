@@ -102,10 +102,10 @@ Vertical 1080×1920 by default; `"format": "landscape"` gives 1920×1080 for You
 | `captions` | `true` burns captions into the video. The `.srt` is written either way |
 | `speed` | ElevenLabs pace, 0.7–1.2 (default 1). Also allowed on a single scene. `eleven_v3`/`eleven_v4` ignore it: use `tempo` |
 | `foreign` | Phrases in another language, e.g. `["mise en place", "Bon appétit!"]`: set in italics in the captions wherever spoken. Mark them on screen with `<em>` |
-| `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them |
+| `model` | ElevenLabs voice model (default `eleven_multilingual_v2`). `eleven_v4` is the most expressive and reads audio tags in `vo`: `[whispers]`, `[excited]`. Tags steer the voice; captions, `data-at` and the free voices ignore them. Also allowed on a single scene: a foreign phrase voiced alone on `eleven_multilingual_v2` keeps its own accent (inside an English sentence it is read in English) |
 | `tempo` | Speeds the finished voice up (or down) without changing pitch, e.g. `1.2`; word times follow. Also per scene (an `[excited]` line is already fast: set that scene to `1`) |
 | `colors` | Override theme colors: `bg`, `ink`, `muted`, `kicker`, `accent`, `line`, `scrim`, and `card` (behind `fit: "contain"` images) |
-| `music` | ElevenLabs Music prompt, generated once into `music.mp3`. Omit for voice only, or supply your own `music.mp3`. On a scene: that scene's part of the score ("near silence, low pulse"); any scene `music` turns the track into sections timed to the scenes (sections under 3 s join the next). After timing changes the build warns: delete `music.mp3` to regenerate (billed) |
+| `music` | ElevenLabs Music prompt, generated once into `music.mp3` with 8 s more than the cut (ElevenLabs fades its last section out; the mix trims it). Omit for voice only, or supply your own `music.mp3`. On a scene: that scene's part of the score ("near silence, low pulse"); any scene `music` turns the track into sections timed to the scenes (sections under 3 s join the next). After timing changes the build warns: delete `music.mp3` to regenerate (billed) |
 | `sfx` | On a scene: `[{ "prompt": "crowd roar", "at": "phrase", "dur": 4, "gain": 0.5 }]`. Made once (ElevenLabs sound effects) into `.sfx-cache/`, laid in when the phrase is spoken (scene start without `at`). Free drafts use cached effects only |
 | `pronounce` | Respellings for the voice, e.g. `{ "Gnocchi": "Nyokee" }` |
 | `id`, `purpose` | Scene name and what the viewer should understand after it (storyboard) |
@@ -155,8 +155,8 @@ Avoid the default "AI look":
 | Generated "archive" pictures | Real photos with credit, or drawings that are plainly drawings |
 
 **No photo for a moment?** In this order:
-1. A real photo from someone who was there, credited. Ask the people who were there before moving on.
-2. Drawn art (an SVG): plainly a drawing, so it claims nothing. Label it illustration.
+1. A real photo from someone who was there, credited. Ask the people who were there before moving on. For a public event (a match, a launch), check the organiser's own galleries first: they often carry the exact moment, used with their credit.
+2. Drawn art (an SVG): plainly a drawing, so it claims nothing. Label it illustration. For a drawn re-creation of a real moment (a goal, a route), take its shape from written reports and from reference frames of the official footage (ask the owner for screenshots); the footage stays reference only. Claim only what a source states, and label it `ILLUSTRATION · POSITIONS APPROXIMATE`.
 3. A generated (AI) image, only for scenery that claims nothing: a texture, a mood, a generic place or object with no one identifiable in it. Label it on screen (`<small>Illustration (AI)</small>`).
 
 Never generate a realistic picture of a real person, or of a moment that happened (it reads as a record of the event). Never generate a logo, crest, kit, product or document, and don't redraw a logo or crest by hand either: use the official file unchanged, or a credited photo of it. A screenshot or repost drops the on-screen label, and the video may outlive its makers, so a generated image is never reused as evidence of anything. Platforms ask for disclosure of photorealistic AI video or audio: Meta requires its AI-disclosure tool when posting it to Facebook or Instagram and may penalise content that isn't disclosed ([Meta, Misinformation policy](https://transparency.meta.com/policies/community-standards/misinformation/)).
@@ -173,5 +173,8 @@ Check each form alone: the text alone, the diagram alone, the page with motion o
 - **Paying for drafts:** draft with a free voice. The cache saves unchanged lines, but every new wording of a line is billed.
 - **Losing a good render:** every build is kept in `out/versions/` as v1, v2, … Deleting `out/` deletes them too; copy a version you post somewhere safe.
 - **Music shorter than the cut:** it loops, which can be audible. Delete `music.mp3` to regenerate at the new length (paid).
+- **Holes in the music:** generated music can drop to silence mid-track; the build prints `music: silent from …`. Regenerate, or splice a bar from elsewhere in the track over the hole (ffmpeg `atrim` + `acrossfade`). For a paid voice pass while the music is still open, a silent `music.mp3` stops the build paying for a track you will replace.
+- **Trusting speech-to-text on pronunciation:** speech-to-text hears the word it expects, so it can't judge an accent. Make two to five short samples (respellings, the phrase alone on another `model`) and let the owner pick by listening.
+- **The same picture, a jumping card:** consecutive scenes on one photo with text blocks of different heights resize the card at each cut. Pad the shorter text blocks (a `<span data-in="99">` that never shows) so the card stays one size.
 - **Motion off after a rewrite:** `data-at` follows the words, `data-in` times do not. Prefer `data-at`; a build that stops on a missing phrase means the narration changed.
 - **Guessed facts:** check claims against the source (code, docs, records) and cite them in `explanation.md`.

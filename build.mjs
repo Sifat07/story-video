@@ -16,7 +16,7 @@ const skill = dirname(fileURLToPath(import.meta.url));
 if (!process.argv[2]) throw new Error("usage: node build.mjs <project-dir>");
 const here = resolve(process.argv[2]);
 const out = join(here, "out");
-const FPS = 30, LEAD = 0.25, TAIL = 0.45, END_HOLD = 1.6;
+const FPS = 30, LEAD = 0.25, TAIL = 0.45, END_HOLD = 1.6, MUSIC_TAIL = 8;
 const FORMATS = { portrait: [1080, 1920], landscape: [1920, 1080] };
 // ElevenLabs "George" (stock voice). Override with ELEVENLABS_VOICE_ID.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
@@ -72,15 +72,15 @@ const untag = text => text.replace(TAG, " ").replace(/\s+/g, " ").trim();
 // only change visuals (or a few lines) don't re-bill.
 const cache = join(here, ".voice-cache");
 let cachedLines = 0;
-async function eleven(spoken, speed) {
-  const id = createHash("sha1").update(JSON.stringify([VOICE_ID, MODEL, speed, spoken])).digest("hex").slice(0, 16);
+async function eleven(spoken, speed, model = MODEL) {
+  const id = createHash("sha1").update(JSON.stringify([VOICE_ID, model, speed, spoken])).digest("hex").slice(0, 16);
   const f = join(cache, id + ".json");
   if (existsSync(f)) { cachedLines++; return JSON.parse(readFileSync(f, "utf8")); }
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps`, {
     method: "POST",
     headers: { "xi-api-key": KEY, "content-type": "application/json" },
     // speed: 0.7-1.2 (ElevenLabs voice_settings), per scene or project-wide; 1 when unset.
-    body: JSON.stringify({ text: spoken, model_id: MODEL, ...(speed && { voice_settings: { speed } }) }),
+    body: JSON.stringify({ text: spoken, model_id: model, ...(speed && { voice_settings: { speed } }) }),
   });
   if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const r = await res.json();
@@ -126,11 +126,11 @@ async function kokoro(spoken, file, speed) {
 // exact from ElevenLabs timestamps, per sentence from Kokoro, else estimated from the word's character position.
 // tempo: speeds up (or slows) the finished line without changing pitch, for models that
 // ignore `speed` (eleven_v3/v4). Word times scale with it, so captions stay in sync.
-async function voice(text, file, speed, tempo) {
+async function voice(text, file, speed, tempo, model) {
   let spoken = respell(text);
   let starts = null;
   if (ENGINE === "elevenlabs") {
-    const r = await eleven(spoken, speed);
+    const r = await eleven(spoken, speed, model);
     writeFileSync(file + ".mp3", Buffer.from(r.audio_base64, "base64"));
     ff("-i", file + ".mp3", "-ar", "44100", "-ac", "1", file);
     if (r.alignment?.characters.join("") === spoken) starts = r.alignment.character_start_times_seconds;
@@ -170,7 +170,7 @@ const tc = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
 const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --- | --- | --- | --- | --- | --- |"];
 for (const [i, s] of scenes.entries()) {
   const raw = join(out, `vo-${i}.wav`), padded = join(out, `seg-${i}.wav`);
-  Object.assign(s, await voice(s.vo, raw, s.speed ?? speed, s.tempo ?? tempo));
+  Object.assign(s, await voice(s.vo, raw, s.speed ?? speed, s.tempo ?? tempo, s.model ?? MODEL));
   // Target words per minute (pauses included) by mode, judged on the voices that pace like a
   // final (ElevenLabs, Kokoro); say and espeak are too rough.
   const wpm = Math.round(s.words.length / s.d * 60);
@@ -242,11 +242,14 @@ function musicPlan() {
       negative_styles: ["vocals", "singing", "lyrics"], context_adherence: "high" });
   }
   if (chunks.length > 1 && chunks.at(-1).duration_ms < 3000) chunks.at(-2).duration_ms += chunks.pop().duration_ms;
+  chunks.at(-1).duration_ms += MUSIC_TAIL * 1000;
   return { chunks };
 }
 
 // 1c. Music bed: generated once (ElevenLabs Music) and reused, so re-renders cost no credits.
 // A track shorter than the cut loops. Delete music.mp3 to regenerate, or drop in your own.
+// ElevenLabs fades its last section out whatever the prompt says, so ask for MUSIC_TAIL s more
+// than the cut; the mix trims it to the video.
 const music = join(here, "music.mp3");
 const planId = createHash("sha1").update(JSON.stringify(musicPlan() ?? MUSIC_PROMPT ?? "")).digest("hex").slice(0, 16);
 if (existsSync(music) && existsSync(music + ".id") && readFileSync(music + ".id", "utf8") !== planId)
@@ -258,7 +261,7 @@ if (!existsSync(music) && ENGINE === "elevenlabs" && !process.env.STILLS && (MUS
     headers: { "xi-api-key": KEY, "content-type": "application/json" },
     body: JSON.stringify(musicPlan()
       ? { composition_plan: musicPlan(), model_id: "music_v2_5" }
-      : { prompt: MUSIC_PROMPT, music_length_ms: Math.ceil(total + 1) * 1000, force_instrumental: true }),
+      : { prompt: MUSIC_PROMPT, music_length_ms: Math.ceil(total + MUSIC_TAIL) * 1000, force_instrumental: true }),
   });
   if (!res.ok) throw new Error(`ElevenLabs music ${res.status}: ${(await res.text()).slice(0, 200)}`);
   writeFileSync(music, Buffer.from(await res.arrayBuffer()));
@@ -266,6 +269,10 @@ if (!existsSync(music) && ENGINE === "elevenlabs" && !process.env.STILLS && (MUS
 }
 let soundtrack = join(out, "narration.wav");
 if (existsSync(music)) {
+  // Generated music can drop to silence mid-track; a hole under the voice is easy to miss.
+  const err = spawnSync("ffmpeg", ["-t", String(total - END_HOLD), "-i", music, "-af", "silencedetect=noise=-45dB:d=1", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  for (const [, t] of err.matchAll(/silence_start: ([\d.]+)/g))
+    console.log(`music: silent from ${(+t).toFixed(1)} s: regenerate, or splice a bar over it with ffmpeg atrim/acrossfade`);
   // Duck the music under the voice, fade it out over the end hold.
   soundtrack = join(out, "mix.wav");
   ff("-i", join(out, "narration.wav"), "-stream_loop", "-1", "-i", music, "-filter_complex",

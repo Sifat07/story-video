@@ -369,7 +369,7 @@
       for (const [node, src, ar] of pics) {
         const r = node.getBoundingClientRect(), im = new Image();
         im.src = src; await im.decode().catch(() => {});
-        if (!im.naturalWidth) continue;
+        if (!im.naturalWidth || /\.svg($|[?#])/i.test(src)) continue; // vectors stay sharp at any size
         const k = Math[ar.includes('slice') ? 'max' : 'min'](r.width / im.naturalWidth, r.height / im.naturalHeight) * zoom;
         if (k > 1.5) warn.push(`${named(src)} is shown at ${k.toFixed(1)}x its size (${im.naturalWidth} px wide): it will look soft; use a bigger file or a card instead of a full-frame photo`);
       }
