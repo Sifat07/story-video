@@ -11,6 +11,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { cpus, homedir, platform } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { frameChecks, readFrames } from "./frames-check.mjs";
 
 const skill = dirname(fileURLToPath(import.meta.url));
 if (!process.argv[2]) throw new Error("usage: node build.mjs <project-dir>");
@@ -407,6 +408,17 @@ for (let k = 0; k < 20; k++)
   copyFileSync(frameFile(Math.floor((k + 0.5) * frames / 20)), join(out, "review", `${String(k).padStart(2, "0")}.jpg`));
 ff("-i", join(out, "review", "%02d.jpg"), "-vf", `scale=${format === "portrait" ? 270 : 480}:-1,tile=5x4`, "-frames:v", "1", join(out, "review.jpg"));
 rmSync(join(out, "review"), { recursive: true });
+// 2e. Measured checks on the frames themselves (frames-check.mjs): one-frame flashes, and in a
+// reel a screen where nothing changes (captions count) for over 2 s before the end hold.
+{
+  const { flashes, stills } = frameChecks(readFrames(["-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg")]), 2 * FPS);
+  const at = f => `scene ${scenes.findLast(s => s.start <= f / FPS).id}: at ${tc(f / FPS)}`;
+  for (const f of flashes) console.log(`check: ${at(f)} one frame differs from both neighbours (a flash): look for a part that shows a frame early`);
+  if (mode === "reel") for (const [a, b] of stills) {
+    const end = Math.min(b + 1, Math.floor((total - END_HOLD) * FPS));
+    if (end - a >= 2 * FPS) console.log(`check: ${at(a)} nothing moves for ${((end - a) / FPS).toFixed(1)} s: add a camera move, a part on a word, or a cut`);
+  }
+}
 copyFileSync(join(out, "poster.jpg"), frameFile(0));
 
 // 3. Encode. Frames are full-range JPEGs; Instagram and Facebook can wash out a full-range

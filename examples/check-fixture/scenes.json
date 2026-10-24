@@ -32,6 +32,14 @@
       "title": "Pneumonoultramicroscopicsilicovolcanoconiosis"
     },
     {
+      "id": "still",
+      "purpose": "Expect: nothing moves for over 2 s (one caption line, slow voice)",
+      "vo": "Nothing moves here at all.",
+      "type": "big",
+      "title": "Still",
+      "tempo": 0.5
+    },
+    {
       "id": "ok",
       "purpose": "Expect: no warning",
       "vo": "Fine.",
