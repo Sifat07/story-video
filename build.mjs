@@ -409,11 +409,17 @@ ff("-i", join(out, "review", "%02d.jpg"), "-vf", `scale=${format === "portrait" 
 rmSync(join(out, "review"), { recursive: true });
 copyFileSync(join(out, "poster.jpg"), frameFile(0));
 
-// 3. Encode.
+// 3. Encode. Frames are full-range JPEGs; Instagram and Facebook can wash out a full-range
+// (yuvj420p) upload, so convert to limited-range BT.709 and tag it, then check the file.
 const mp4 = join(out, `${basename(here)}.mp4`);
 ff("-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg"), "-i", soundtrack,
-  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
+  "-vf", "scale=in_range=pc:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709,format=yuv420p",
+  "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+  "-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
   "-movflags", "+faststart", mp4);
+const probe = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,pix_fmt,color_range,color_space", "-of", "compact=p=0:nk=1", mp4]).toString().trim().split("\n");
+if (!probe[0].startsWith("h264|yuv420p|tv|bt709") || !probe.some(l => l.startsWith("aac")))
+  console.log(`check: ${basename(mp4)} is not upload-safe (${probe.join(", ")}): want h264|yuv420p|tv|bt709 plus aac`);
 rmSync(join(out, "frames"), { recursive: true });
 const versions = join(out, "versions");
 mkdirSync(versions, { recursive: true });
