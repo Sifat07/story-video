@@ -309,7 +309,8 @@ function spokenAt(s, phrase) {
 }
 // 1d. Sound effects: per scene "sfx": [{ prompt, at?, dur?, gain? }]. Each is made once
 // (ElevenLabs sound generation) into .sfx-cache and laid in when its phrase is spoken
-// (scene start when no "at"). Free drafts use cached effects only.
+// (scene start when no "at"). Each stops at its scene's end with a short fade, so a long
+// roar never plays over the next scene's voice. Free drafts use cached effects only.
 const sfxCache = join(here, ".sfx-cache"), effects = [];
 for (const s of scenes) for (const e of s.sfx ?? []) {
   const f = join(sfxCache, createHash("sha1").update(JSON.stringify([e.prompt, e.dur])).digest("hex").slice(0, 16) + ".mp3");
@@ -323,12 +324,13 @@ for (const s of scenes) for (const e of s.sfx ?? []) {
     mkdirSync(sfxCache, { recursive: true });
     writeFileSync(f, Buffer.from(await res.arrayBuffer()));
   }
-  if (existsSync(f)) effects.push({ f, t: s.start + (e.at ? spokenAt(s, e.at) : 0), gain: e.gain ?? 0.5 });
+  const t = s.start + (e.at ? spokenAt(s, e.at) : 0);
+  if (existsSync(f)) effects.push({ f, t, len: Math.max(0.5, s.start + s.dur - t), gain: e.gain ?? 0.5 });
 }
 if (effects.length) {
   const mixed = join(out, "mix-sfx.wav");
   ff("-i", soundtrack, ...effects.flatMap(e => ["-i", e.f]), "-filter_complex",
-    effects.map((e, k) => `[${k + 1}]aformat=channel_layouts=stereo,volume=${e.gain},adelay=${Math.round(e.t * 1000)}:all=1[s${k}];`).join("") +
+    effects.map((e, k) => `[${k + 1}]aformat=channel_layouts=stereo,volume=${e.gain},atrim=0:${e.len.toFixed(2)},afade=t=out:st=${Math.max(0, e.len - 0.4).toFixed(2)}:d=0.4,adelay=${Math.round(e.t * 1000)}:all=1[s${k}];`).join("") +
     `[0]aformat=channel_layouts=stereo[base];[base]${effects.map((_, k) => `[s${k}]`).join("")}amix=inputs=${effects.length + 1}:duration=first:normalize=0`,
     mixed);
   soundtrack = mixed;
