@@ -15,7 +15,7 @@
   /* Portrait keeps 180 px clear on the right: the Reels apps put their buttons there. */
   #stage { position:absolute; inset:0; padding:0 180px 0 96px; display:flex; flex-direction:column; justify-content:center; }
   .line { will-change:transform,opacity; }
-  #kicker { font:500 34px/1 "Geist Mono", monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--kicker); margin-bottom:56px; }
+  #kicker { font:500 38px/1 "Geist Mono", monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--kicker); margin-bottom:56px; }
   #title { font:600 132px/1.02 Fraunces, Georgia, serif; letter-spacing:-.02em; }
   #title em { font-style:italic; font-weight:500; color:var(--accent); }
   #sub { font:400 46px/1.35 "Work Sans", sans-serif; color:var(--muted); margin-top:64px; max-width:860px; }
@@ -199,31 +199,41 @@
     return a.map((v, j) => lerp(v, b[j], p));
   }
 
+  function setText(s) {
+    kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.innerHTML = s.sub || '';
+    logo.style.display = s.logo && hasLogo ? 'block' : 'none';
+    document.body.classList.toggle('card', !!s.photos && !s.bleed);
+    document.body.classList.toggle('big', s.type === 'big');
+    // A word too long for the line ("Extraordinary" at 230px) shrinks until it fits.
+    title.style.fontSize = '';
+    for (let f = parseFloat(getComputedStyle(title).fontSize); f > 60 && title.scrollWidth > title.clientWidth + 1; f -= 6)
+      title.style.fontSize = f + 'px';
+  }
+  // Top of the first visible text line (Infinity when there is none).
+  const textTop = () => [...stage.querySelectorAll('.line')].find(el => el.offsetParent)?.offsetTop ?? Infinity;
+  let cutTextTop;
+
   // opts.poster: the thumbnail frame, drawn without captions.
   window.render = (t, opts = {}) => {
     const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
     const s = scenes[i], lt = t - s.start, cut = s.transition === 'cut';
     lastLt = lt;
+    // Cards on either side of a hard cut share one height: the highest text block sets it.
+    cutTextTop ??= Math.min(...scenes.filter(o => o.el && o.transition === 'cut' && !o.bleed).map(o => (setText(o), textTop())));
     if (i !== current) {
       current = i;
-      kicker.textContent = s.kicker || ''; title.innerHTML = s.title || ''; sub.innerHTML = s.sub || '';
-      logo.style.display = s.logo && hasLogo ? 'block' : 'none';
+      setText(s);
       scenes.forEach(o => o.el && (o.el.style.display = o === s ? 'block' : 'none'));
-      document.body.classList.toggle('card', !!s.photos && !s.bleed);
-      document.body.classList.toggle('big', s.type === 'big');
-      // A word too long for the line ("Extraordinary" at 230px) shrinks until it fits.
-      title.style.fontSize = '';
-      for (let f = parseFloat(getComputedStyle(title).fontSize); f > 60 && title.scrollWidth > title.clientWidth + 1; f -= 6)
-        title.style.fontSize = f + 'px';
       if (s.el) {
         // Portrait card: grows down to 64px above the text, so no dead band between them
         // (and a long text block shrinks it rather than covering it).
-        const first = [...stage.querySelectorAll('.line')].find(el => el.offsetParent);
+        const top = cut && !s.bleed ? cutTextTop : textTop();
         const portraitCard = !s.bleed && !document.body.classList.contains('landscape');
         s.el.style.top = '';
-        let h = portraitCard && first ? Math.max(560, first.offsetTop - s.el.offsetTop - 64) : 0;
-        // A contained picture wider than that space: card hugs the picture, centred in the space.
-        const m = s.fit === 'contain' && h && s.el.querySelector('img, svg');
+        let h = portraitCard && top < Infinity ? Math.max(560, top - s.el.offsetTop - 64) : 0;
+        // A contained picture wider than that space: card hugs the picture, centred in the space
+        // (not across a hard cut, where the card keeps its size and the picture sits inside it).
+        const m = s.fit === 'contain' && h && !cut && s.el.querySelector('img, svg');
         if (m) {
           const vb = m.viewBox?.baseVal, fitH = s.el.offsetWidth / (vb?.width ? vb.width / vb.height : m.naturalWidth / m.naturalHeight);
           if (fitH < h) { s.el.style.top = s.el.offsetTop + (h - fitH) / 2 + 'px'; h = fitH; }
@@ -247,8 +257,11 @@
     // "cut": quick snap in, no fade out (the next scene cuts in hard). The final scene never fades.
     const lines = [...document.querySelectorAll('#stage .line')].filter(el => el.offsetParent);
     const out = i === scenes.length - 1 || cut ? 1 : 1 - ease((lt - (s.dur - 0.25)) / 0.25);
+    // On a cut, a line that reads the same as in the scene before stays put instead of rising in again.
+    const plainText = h => (h || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const prev = scenes[i - 1], same = el => cut && prev && el.id !== 'logo' && plainText(prev[el.id]) === plainText(s[el.id]);
     lines.forEach((el, k) => {
-      const p = cut ? ease((lt - k * 0.08) / 0.25) : ease((lt - 0.15 - k * 0.22) / 0.6);
+      const p = same(el) ? 1 : cut ? ease((lt - k * 0.08) / 0.25) : ease((lt - 0.15 - k * 0.22) / 0.6);
       el.style.opacity = p * out;
       el.style.transform = `translateY(${(1 - p) * (cut ? 60 : 40)}px)`;
     });
@@ -340,6 +353,15 @@
   // Layout check of the frame last drawn (build.mjs calls it on each scene's settled frame and
   // prints what it returns; the build goes on). Optional: an own template may leave it out.
   const meets = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  // Camera at t as [x, y, zoom] (x, y: centre of view, 0-1 of the picture), or null with no camera:
+  // the data-focus camera if the scene has one, else the reel reframes. Build compares it across cuts.
+  window.cameraAt = t => {
+    window.render(t, { poster: true });
+    const s = scenes[current], box = [...s.el?.children ?? []].find(b => b.focus?.length);
+    if (box) { const c = camera(box.focus, lastLt); return [c.x, c.y, c.z]; }
+    if (s.el && s.reframe) { const [x, y, z] = framing(s, lastLt); return [x / 100, y / 100, z]; }
+    return null;
+  };
   const named = src => decodeURIComponent(src.split('/').pop());
   window.check = async () => {
     const s = scenes[current], warn = [];

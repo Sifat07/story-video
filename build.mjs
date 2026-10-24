@@ -176,7 +176,10 @@ for (const [i, s] of scenes.entries()) {
   // final (ElevenLabs, Kokoro); say and espeak are too rough.
   const wpm = Math.round(s.words.length / s.d * 60);
   if (["elevenlabs", "kokoro"].includes(ENGINE) && (wpm < WPM_LO || wpm > WPM_HI)) console.log(`wpm: scene ${s.id} at ${wpm} (aim ${WPM_LO}-${WPM_HI})`);
-  const shown = [s.kicker, s.title, s.sub].filter(Boolean).map(h => h.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).join(" / ");
+  // Leave out parts timed (data-in without data-at) to appear after the scene ends: hidden spacers.
+  const hidden = /<(\w+)(?![^>]*\sdata-at=)[^>]*\sdata-in="([\d.]+)"[^>]*>.*?<\/\1>/g;
+  const shown = [s.kicker, s.title, s.sub].filter(Boolean)
+    .map(h => h.replace(hidden, (m, _, t) => +t >= LEAD + s.d ? "" : m).replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").trim()).filter(Boolean).join(" / ");
   board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
   s.start = start;
   // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
@@ -207,6 +210,7 @@ for (const s of scenes) for (const f of foreign) {
   ws.forEach((_, k) => { if (want.length && want.every((w, j) => ws[k + j] === w)) want.forEach((_, j) => s.words[k + j].i = true); });
 }
 const cues = [], LINE = format === "portrait" ? 28 : 34;
+const LEAN = /^(the|a|an|of|to|at|in|on|by|and|or|but|for|with|from|our|my|your|their|his|her|its)$/;
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
   const clauses = [[]];
@@ -218,7 +222,11 @@ for (const s of scenes) {
   const parts = clauses.flatMap(c => {
     const n = Math.ceil(line(c).length / LINE), target = line(c).length / n, out = [[]];
     for (const x of c) {
-      if (out.at(-1).length && out.length < n && line([...out.at(-1), x]).length > target + 4) out.push([]);
+      if (out.at(-1).length && out.length < n && line([...out.at(-1), x]).length > target + 4) {
+        // Never end a line on a word that starts the next phrase ("goes down the / far post").
+        const prev = out.at(-1), carry = prev.length > 1 && LEAN.test(plain(prev.at(-1).w)) ? [prev.pop()] : [];
+        out.push(carry);
+      }
       out.at(-1).push(x);
     }
     return out;
@@ -368,6 +376,20 @@ for (const s of scenes) {
     if (hold > 3) warn.push(`one photo holds ${hold.toFixed(1)} s unchanged: split the sentence, add a second photo, or put it in an SVG with a data-focus camera`);
   }
   for (const w of warn) console.log(`check: scene ${s.id}: ${w}`);
+}
+// Match cuts: across a hard cut the camera keeps its direction (a pan doesn't reverse, a push-in
+// doesn't cut to a pull-out). Motion over the 3 frames each side; still-to-moving is fine.
+if (await pages[0].evaluate(() => !!window.cameraAt)) for (const [i, s] of scenes.slice(0, -1).entries()) {
+  const n = scenes[i + 1], end = n.start - 1 / FPS;
+  if (n.transition !== "cut") continue;
+  const cam = t => pages[0].evaluate(t => window.cameraAt(t), t);
+  const [a0, a1, b0, b1] = [await cam(end - 3 / FPS), await cam(end), await cam(n.start), await cam(n.start + 3 / FPS)];
+  if (!a0 || !b0) continue;
+  // [axis, said when it rises first, said when it falls first]
+  const flips = [[0, "pans right then left", "pans left then right"], [1, "tilts down then up", "tilts up then down"], [2, "pushes in then pulls out", "pulls out then pushes in"]]
+    .filter(([j]) => Math.abs(a1[j] - a0[j]) > 0.002 && Math.abs(b1[j] - b0[j]) > 0.002 && Math.sign(a1[j] - a0[j]) !== Math.sign(b1[j] - b0[j]))
+    .map(([j, rise, fall]) => a1[j] > a0[j] ? rise : fall);
+  for (const w of flips) console.log(`check: cut ${s.id}→${n.id}: camera ${w}`);
 }
 // STILLS=1: style frames only, one settled frame per scene in out/stills/, no video.
 // Cheap way to compare looks (colors, theme, art) before a full render.

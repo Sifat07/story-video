@@ -40,6 +40,26 @@
       "tempo": 0.5
     },
     {
+      "id": "push",
+      "purpose": "Trips the match-cut check: pushes in up to the cut",
+      "vo": "The camera pushes in on the last word.",
+      "title": "Push in",
+      "photos": [
+        "push.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "pull",
+      "purpose": "…and the next scene opens pulling out",
+      "vo": "Then it pulls straight back out.",
+      "title": "Pull out",
+      "photos": [
+        "pull.svg"
+      ],
+      "fit": "contain"
+    },
+    {
       "id": "ok",
       "purpose": "Expect: no warning",
       "vo": "Fine.",
