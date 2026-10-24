@@ -231,8 +231,9 @@
         const portraitCard = !s.bleed && !document.body.classList.contains('landscape');
         s.el.style.top = '';
         let h = portraitCard && top < Infinity ? Math.max(560, top - s.el.offsetTop - 64) : 0;
-        // A contained picture wider than that space: card hugs the picture, centred in the space.
-        const m = s.fit === 'contain' && h && s.el.querySelector('img, svg');
+        // A contained picture wider than that space: card hugs the picture, centred in the space
+        // (not across a hard cut, where the card keeps its size and the picture sits inside it).
+        const m = s.fit === 'contain' && h && !cut && s.el.querySelector('img, svg');
         if (m) {
           const vb = m.viewBox?.baseVal, fitH = s.el.offsetWidth / (vb?.width ? vb.width / vb.height : m.naturalWidth / m.naturalHeight);
           if (fitH < h) { s.el.style.top = s.el.offsetTop + (h - fitH) / 2 + 'px'; h = fitH; }
