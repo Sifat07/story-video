@@ -156,6 +156,9 @@
             [...g.children].forEach((c, k) => c.dataset.in = t0 + k * +g.dataset.stagger);
           }
           sc.el.append(box);
+          // A crash zoom lands CRASH s after its time; that is when its hit-stop freezes.
+          sc.hits = [...sc.hits ?? [], ...[...box.querySelectorAll('[data-hit]')]
+            .map(el => +(el.dataset.in ?? 0) + (el.hasAttribute('data-crash') ? CRASH : 0))].sort((a, b) => a - b);
           continue;
         }
         const img = new Image();
@@ -173,11 +176,15 @@
     return true;
   };
 
+  // Crash zoom (data-crash): the camera rushes to its focus in CRASH s, accelerating (eases in, no glide).
+  // Hit-stop (data-hit): the whole picture freezes for HIT s (2 frames at 30 fps) at the part's time.
+  const CRASH = 0.2, HIT = 2 / 30, rush = x => Math.min(Math.max(x, 0), 1) ** 3;
+
   // Where the camera is at lt: eases from one focus to the next over 0.7 s (z 1 = whole diagram).
   function camera(keys, lt) {
     let c = { z: 1, x: .5, y: .5 };
     for (const k of keys) {
-      const p = glide((lt - k.t) / 0.9);
+      const p = k.crash ? rush((lt - k.t) / CRASH) : glide((lt - k.t) / 0.9);
       if (p <= 0) break;
       const to = k.z === 1 ? { z: 1, x: .5, y: .5 } : k;
       c = { z: lerp(c.z, to.z, p), x: lerp(c.x, to.x, p), y: lerp(c.y, to.y, p) };
@@ -216,7 +223,10 @@
   // opts.poster: the thumbnail frame, drawn without captions.
   window.render = (t, opts = {}) => {
     const i = Math.max(0, scenes.findLastIndex(s => t >= s.start));
-    const s = scenes[i], lt = t - s.start, cut = s.transition === 'cut';
+    const s = scenes[i], cut = s.transition === 'cut';
+    // Hit-stop: scene time stands still for HIT s from each hit (captions, on t, keep going with the voice).
+    let lt = t - s.start;
+    for (const h of s.hits ?? []) lt -= Math.min(Math.max(lt - h, 0), HIT);
     lastLt = lt;
     // Cards on either side of a hard cut share one height: the highest text block sets it.
     cutTextTop ??= Math.min(...scenes.filter(o => o.el && o.transition === 'cut' && !o.bleed).map(o => (setText(o), textTop())));
@@ -247,7 +257,7 @@
           box.focus = [...box.querySelectorAll('[data-focus]')].map(el => {
             el.style.transform = '';
             const r = el.getBoundingClientRect();
-            return { t: +(el.dataset.in ?? 0), z: +el.dataset.focus || 1.7,
+            return { t: +(el.dataset.in ?? 0), z: +el.dataset.focus || 1.7, crash: el.hasAttribute('data-crash'),
               x: (r.left + r.width / 2 - r0.left) / r0.width, y: (r.top + r.height / 2 - r0.top) / r0.height };
           }).sort((a, b) => a.t - b.t);
         }
