@@ -4,7 +4,7 @@
   "scenes": [
     {
       "id": "crowded",
-      "purpose": "Expect: text crowds the picture; small.jpg soft; one photo holds over 3 s",
+      "purpose": "Expect: text crowds the picture; small.jpg soft; one photo holds over 3 s; the hook takes over 3 s to say",
       "vo": "This card carries far more words than its picture leaves room for, so the text runs into it.",
       "photos": [
         "small.jpg"
@@ -58,6 +58,14 @@
         "pull.svg"
       ],
       "fit": "contain"
+    },
+    {
+      "id": "fast",
+      "purpose": "Expect: captions read faster than 17 characters a second",
+      "vo": "Captions racing past, far too quickly to read on a phone.",
+      "type": "big",
+      "title": "Fast",
+      "tempo": 1.8
     },
     {
       "id": "ok",
