@@ -57,7 +57,7 @@ Write it once and read it aloud at speaking pace. Then answer four questions in 
 3. Who would a viewer send it to?
 4. Would the person it is about be proud of it?
 
-Then an AI-tells pass: cut "more than just", "here's the thing", rules of three, and lines that would fit any group. A weak answer to any question means rewrite before `scenes.json`.
+Then an AI-tells pass: cut "more than just", "here's the thing", fake-candid openers ("Honestly?", "Real talk"), rules of three, the same thing renamed line to line (keep one name: heard once, a new name sounds like a new thing), and lines that would fit any group. A weak answer to any question means rewrite before `scenes.json`.
 
 **Close on a question or a send** ("Send this to whoever runs with you"), not "tag a friend" or "comment below": platforms demote engagement bait. No sign-up line in a reel; it turns the story into an ad.
 
@@ -115,5 +115,6 @@ Built from these MIT-licensed skills, adapted rather than copied:
 - [transitive-bullshit/skills](https://github.com/transitive-bullshit/skills) `storytelling`: logline, *but* / *therefore*, the revealing moment over chronology.
 - [yaxeen/storytelling-skills](https://github.com/yaxeen/storytelling-skills) `storytelling-hooks`: hook levers, the three hook layers, the right viewer, the bookend.
 - [arhamhi/hooksmith](https://github.com/arhamhi/hooksmith): the payoff justifies the setup; never invent proof.
+- [miqdadbadjuber/anti-slop](https://github.com/miqdadbadjuber/anti-slop) `antislop-copywriting`: fake-candid openers, synonym cycling.
 
 Method reviewed by a panel (story editor, short-form editor, fan) on 2026-10-16.
