@@ -185,7 +185,7 @@ for (const [i, s] of scenes.entries()) {
   // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
   // fall 1.5 s or more from any other, so a long sentence still moves. The template uses them.
   const after = re => s.words.filter((_, k) => k && re.test(s.words[k - 1].w)).map(x => +(LEAD + x.t).toFixed(2));
-  s.beats = after(/[.!?]["'”’)»]*$/);
+  s.beats = after(/[.!?।]["'”’)»]*$/);
   for (const t of after(/[,;:]["'”’)»]*$/)) if ([0, ...s.beats].every(b => Math.abs(t - b) >= 1.5)) s.beats.push(t);
   s.beats.sort((x, y) => x - y);
   s.dur = LEAD + s.d + (i === scenes.length - 1 ? END_HOLD : TAIL);
@@ -214,7 +214,7 @@ const LEAN = /^(the|a|an|of|to|at|in|on|by|and|or|but|for|with|from|our|my|your|
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
   const clauses = [[]];
-  s.words.forEach((x, k) => { clauses.at(-1).push(x); if (/[.!?;:,]$/.test(x.w) && k < s.words.length - 1) clauses.push([]); });
+  s.words.forEach((x, k) => { clauses.at(-1).push(x); if (/[.!?।;:,]$/.test(x.w) && k < s.words.length - 1) clauses.push([]); });
   // A tiny clause ("Online,") joins the next one when both fit on one line.
   for (let k = clauses.length - 2; k >= 0; k--)
     if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= LINE)
@@ -242,7 +242,7 @@ writeFileSync(join(out, `${basename(here)}.srt`),
 // Captions: at most 20 characters a second, 17 in a reel, where viewers read muted, often in a
 // second language (Netflix English Timed Text Style Guide: adults 20, children 17).
 if (mode === "reel") {
-  const s = scenes[0], k = s.words.findIndex(x => /[.!?]["'”’)»]*$/.test(x.w));
+  const s = scenes[0], k = s.words.findIndex(x => /[.!?।]["'”’)»]*$/.test(x.w));
   const hook = LEAD + (s.words[k + 1]?.t ?? s.d);
   if (hook > 3) console.log(`check: scene ${s.id}: the hook (first sentence) takes ${hook.toFixed(1)} s to say: cut it to land inside 3 s`);
 }
