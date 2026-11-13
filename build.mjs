@@ -158,8 +158,81 @@ async function voice(text, file, speed, tempo, model) {
   const words = spans.map((m, k) => ({
     w: shown.length === spans.length ? shown[k] : m[0],
     t: starts?.[m.index] ?? m.index / spoken.length * d,
+    sp: m[0], ci: m.index, // the spoken word and where it sits in `spoken`, for alignWords()
   }));
-  return { d, words };
+  return { d, words, spoken };
+}
+
+// Exact word times for the free voices (optional, Apple Silicon): a forced aligner
+// (Qwen3-ForcedAligner-0.6B via align.py, installed by align-setup.sh) finds when each known word
+// is said in the finished line, tempo included. One Python process aligns every line not already in
+// .voice-cache. A line keeps its estimate when the aligner is missing, the line isn't Latin script
+// (the model has no Bangla), or its tokens don't map one-to-one onto our words. Kokoro lines are
+// also clamped to each sentence's known window, so the worst case is today's estimate.
+// Measured on 47 sentence starts: Kokoro 25 ms median (was 184 ms), say 20 ms (was 239 ms).
+const ALIGN_PY = process.env.STORY_ALIGN_PYTHON || join(skill, ".align", "bin", "python");
+const ALIGN_ID = "qwen3-forcedaligner-0.6b-8bit";
+const alignNorm = w => w.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+function mapTokens(words, tokens) {
+  const toks = tokens.map(([w, t]) => [alignNorm(w), t]).filter(([w]) => w);
+  let k = 0;
+  const times = words.map(x => {
+    const want = alignNorm(x.sp);
+    if (!want) return null;
+    let got = "", t = null;
+    while (k < toks.length && got.length < want.length) { t ??= toks[k][1]; got += toks[k++][0]; }
+    return got === want ? t : undefined;
+  });
+  return k === toks.length && !times.includes(undefined) ? times : null;
+}
+function alignWords(scenes) {
+  const done = () => scenes.forEach(s => { delete s.spoken; s.words.forEach(x => { delete x.sp; delete x.ci; }); });
+  if (ENGINE === "elevenlabs" || process.env.ALIGN === "0") return done();
+  if (!existsSync(ALIGN_PY)) {
+    console.log(`words: estimated inside sentences (VOICE=${ENGINE}); for exact word times run \`sh ${join(skill, "align-setup.sh")}\` (Apple Silicon)`);
+    return done();
+  }
+  const latin = /^[\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}\s]*$/u;
+  const lines = scenes.map(s => {
+    if (!latin.test(s.spoken) || s.d > 170) return null;
+    const wav = readFileSync(s.raw);
+    const f = join(cache, "align-" + createHash("sha1").update(ALIGN_ID).update(s.spoken).update(wav).digest("hex").slice(0, 16) + ".json");
+    return { s, f, tokens: existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null };
+  });
+  const todo = lines.filter(l => l && !l.tokens);
+  if (todo.length) {
+    const r = spawnSync(ALIGN_PY, [join(skill, "align.py")], {
+      input: JSON.stringify({ jobs: todo.map(l => ({ wav: l.s.raw, text: l.s.spoken, language: "English" })) }),
+      env: { ...process.env, HF_HUB_OFFLINE: "1" }, maxBuffer: 64 << 20, encoding: "utf8",
+    });
+    let res = null;
+    try { if (r.status === 0) res = JSON.parse(r.stdout); } catch {}
+    if (!res) console.log(`check: aligner failed, words estimated: ${(r.stderr || r.error?.message || "").trim().split("\n").at(-1)}`);
+    else todo.forEach((l, k) => {
+      if (res[k]) { mkdirSync(cache, { recursive: true }); writeFileSync(l.f, JSON.stringify(res[k])); l.tokens = res[k]; }
+    });
+  }
+  let aligned = 0;
+  for (const l of lines) {
+    const times = l?.tokens && mapTokens(l.s.words, l.tokens);
+    if (!times) continue;
+    const { words, d } = l.s;
+    // A sentence's window runs from its first word's start to the next sentence's. Kokoro voices
+    // each sentence on its own, so its estimates there are exact (each clip leads with 0.15 s of
+    // silence, which the aligner rightly skips); say and espeak only know the line's length.
+    const first = words.map((x, k) => k === 0 || (ENGINE === "kokoro" && /[.!?]$/.test(words[k - 1].sp)));
+    const win = words.map((_, k) => {
+      let a = k; while (!first[a]) a--;
+      let b = k + 1; while (b < words.length && !first[b]) b++;
+      return ENGINE === "kokoro" ? [words[a].t, words[b]?.t ?? d] : [0, d];
+    });
+    const t = times.map((x, k) => x == null ? words[k].t : Math.min(Math.max(x, win[k][0]), win[k][1]));
+    if (t.some((x, k) => k && x < t[k - 1])) continue; // out of order: keep the estimate
+    words.forEach((x, k) => { x.t = t[k]; });
+    aligned++;
+  }
+  console.log(`words: aligned ${aligned}/${scenes.length} lines (forced aligner)`);
+  done();
 }
 
 // 1. Voice each scene; scene length follows its narration.
@@ -170,8 +243,12 @@ const parts = [];
 const tc = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
 const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --- | --- | --- | --- | --- | --- |"];
 for (const [i, s] of scenes.entries()) {
-  const raw = join(out, `vo-${i}.wav`), padded = join(out, `seg-${i}.wav`);
-  Object.assign(s, await voice(s.vo, raw, s.speed ?? speed, s.tempo ?? tempo, s.model ?? MODEL));
+  s.raw = join(out, `vo-${i}.wav`);
+  Object.assign(s, await voice(s.vo, s.raw, s.speed ?? speed, s.tempo ?? tempo, s.model ?? MODEL));
+}
+alignWords(scenes);
+for (const [i, s] of scenes.entries()) {
+  const raw = s.raw, padded = join(out, `seg-${i}.wav`);
   // Target words per minute (pauses included) by mode, judged on the voices that pace like a
   // final (ElevenLabs, Kokoro); say and espeak are too rough.
   const wpm = Math.round(s.words.length / s.d * 60);
