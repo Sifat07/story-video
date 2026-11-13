@@ -654,4 +654,6 @@ const versions = join(out, "versions");
 mkdirSync(versions, { recursive: true });
 const version = join(versions, `v${readdirSync(versions).filter(f => f.endsWith(".mp4")).length + 1}.mp4`);
 copyFileSync(mp4, version);
+// A voice that sounds human: some platforms want realistic AI audio labelled, so remind at the end, where it is seen.
+if (["elevenlabs", "kokoro"].includes(ENGINE)) console.log(`voice: AI voice (${ENGINE}); say so when you post it (e.g. the platform's AI label or a line in the caption)`);
 console.log(`done: ${mp4} (kept as ${version})`);
