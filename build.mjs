@@ -423,7 +423,7 @@ function musicChecks(voiceFile, duckedFile) {
     return gaps.length ? med(gaps) : null;
   });
   const low = margins.map((g, k) => [g, scenes[k]]).filter(([g]) => g != null).sort((x, y) => x[0] - y[0])[0];
-  if (low) console.log(`music: sits ${Math.round(med(margins.filter(g => g != null)))} dB under the voice while it speaks (least: scene ${low[1].id}, ${Math.round(low[0])} dB)`);
+  if (low) console.log(`music: sits ${Math.round(med(margins.filter(g => g != null)))} dB under the voice while it speaks (least: scene ${low[1].id}, ${low[0].toFixed(1)} dB)`);
   for (const [k, g] of margins.entries()) if (g != null && g < MARGIN)
     console.log(`check: scene ${scenes[k].id}: the music sits only ${g.toFixed(1)} dB under the voice (want ${MARGIN}+): lower it, or pick a calmer stretch`);
   // Beat, on the music as it plays (looped, before ducking: ducking itself makes rises).
