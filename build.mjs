@@ -425,7 +425,7 @@ function musicChecks(voiceFile, duckedFile) {
   const low = margins.map((g, k) => [g, scenes[k]]).filter(([g]) => g != null).sort((x, y) => x[0] - y[0])[0];
   if (low) console.log(`music: sits ${Math.round(med(margins.filter(g => g != null)))} dB under the voice while it speaks (least: scene ${low[1].id}, ${Math.round(low[0])} dB)`);
   for (const [k, g] of margins.entries()) if (g != null && g < MARGIN)
-    console.log(`check: scene ${scenes[k].id}: the music sits only ${Math.round(g)} dB under the voice (want ${MARGIN}+): lower it, or pick a calmer stretch`);
+    console.log(`check: scene ${scenes[k].id}: the music sits only ${g.toFixed(1)} dB under the voice (want ${MARGIN}+): lower it, or pick a calmer stretch`);
   // Beat, on the music as it plays (looped, before ducking: ducking itself makes rises).
   const cuts = scenes.slice(1).map(s => s.start);
   if (cuts.length < 3) return;
@@ -623,16 +623,18 @@ copyFileSync(join(out, "poster.jpg"), frameFile(0));
 // 3. Encode. Frames are full-range JPEGs; Instagram and Facebook can wash out a full-range
 // (yuvj420p) upload, so convert to limited-range BT.709 and tag it, then check the file.
 // Loudness in two passes: measure the soundtrack, then apply loudnorm with those numbers as one
-// steady gain (linear), so it lands on -14 LUFS without pumping. When that gain would push the
-// peaks over -1.5 dBTP, loudnorm falls back to its dynamic mode by itself. The file is measured after.
+// steady gain (linear), so it lands on -14 LUFS without pumping. When one gain can't (peaks would
+// pass -1.5 dBTP, or the range is over 11 LU), loudnorm falls back to its dynamic mode by itself;
+// a dry run of pass two says which. The file is measured after.
 const mp4 = join(out, `${basename(here)}.mp4`);
 const LOUD = "I=-14:TP=-1.5:LRA=11";
-const loudness = f => {
-  const e = spawnSync("ffmpeg", ["-hide_banner", "-i", f, "-vn", "-af", `loudnorm=${LOUD}:print_format=json`, "-f", "null", "-"], { encoding: "utf8" }).stderr;
+const loudness = (f, af = `loudnorm=${LOUD}`) => {
+  const e = spawnSync("ffmpeg", ["-hide_banner", "-i", f, "-vn", "-af", `${af}:print_format=json`, "-f", "null", "-"], { encoding: "utf8" }).stderr;
   try { const j = JSON.parse(e.match(/\{[^{}]*"input_i"[^{}]*\}/)[0]); return isFinite(+j.input_i) ? j : null; } catch { return null; }
 };
 const m = loudness(soundtrack);
 const loudnorm = m ? `loudnorm=${LOUD}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true` : `loudnorm=${LOUD}`;
+const loudMode = m ? loudness(soundtrack, loudnorm)?.normalization_type : "dynamic: the soundtrack couldn't be measured";
 ff("-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg"), "-i", soundtrack,
   "-vf", "scale=in_range=pc:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709,format=yuv420p",
   "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
@@ -643,8 +645,7 @@ if (!probe[0].startsWith("h264|yuv420p|tv|bt709") || !probe.some(l => l.startsWi
   console.log(`check: ${basename(mp4)} is not upload-safe (${probe.join(", ")}): want h264|yuv420p|tv|bt709 plus aac`);
 const got = loudness(mp4);
 if (got) {
-  const steady = m && +m.input_tp - 14 - +m.input_i <= -1.5;
-  console.log(`audio: ${(+got.input_i).toFixed(1)} LUFS, true peak ${(+got.input_tp).toFixed(1)} dBTP (aim -14, at most -1), ${steady ? "one steady gain" : "dynamic: peaks too high for one steady gain"}`);
+  console.log(`audio: ${(+got.input_i).toFixed(1)} LUFS, true peak ${(+got.input_tp).toFixed(1)} dBTP (aim -14, at most -1), ${loudMode === "linear" ? "one steady gain" : loudMode ?? "mode unknown"}`);
   if (Math.abs(+got.input_i + 14) > 1 || +got.input_tp > -1)
     console.log(`check: ${basename(mp4)} is at ${(+got.input_i).toFixed(1)} LUFS, true peak ${(+got.input_tp).toFixed(1)} dBTP: platforms turn it ${+got.input_i > -14 ? "down" : "up"}; look for one loud effect or a clipped music.mp3`);
 }
