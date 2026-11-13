@@ -4,7 +4,7 @@
   "scenes": [
     {
       "id": "crowded",
-      "purpose": "Expect: text crowds the picture; small.jpg soft; one photo holds over 3 s; the hook takes over 3 s to say",
+      "purpose": "Expect: text crowds the picture; small.jpg soft; one photo holds over 3 s; the hook takes over 3 s to say; music.mp3 (a held 220 Hz tone and an 80 bpm kick, made with ffmpeg): the music sits under 10 dB below the voice, and the cuts ignore its beat",
       "vo": "This card carries far more words than its picture leaves room for, so the text runs into it.",
       "photos": [
         "small.jpg"
@@ -66,6 +66,34 @@
       "type": "big",
       "title": "Fast",
       "tempo": 1.8
+    },
+    {
+      "id": "blink",
+      "purpose": "Expect: a caption up for under 0.83 s (\"Stop,\" can't join the long clause after it)",
+      "vo": "Stop, the camera pushes all the way in on the very last word.",
+      "type": "big",
+      "title": "Blink",
+      "tempo": 1.4
+    },
+    {
+      "id": "pop",
+      "purpose": "Expect: two or three frames pop (a pale sheet shown for 0.08 s)",
+      "vo": "A sheet flickers on and off.",
+      "title": "Pop",
+      "photos": [
+        "pop.svg"
+      ],
+      "fit": "contain"
+    },
+    {
+      "id": "hole",
+      "purpose": "Expect: the picture is flat black (an all-black photo, no title)",
+      "vo": "Here the picture is missing.",
+      "type": "big",
+      "bleed": true,
+      "photos": [
+        "black.png"
+      ]
     },
     {
       "id": "ok",
