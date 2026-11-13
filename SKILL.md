@@ -45,7 +45,7 @@ The same SVG feeds the page and the video, so: transparent background, at least 
 - `data-stagger="0.03"` on a `<g>` with `data-at`/`data-in`: its children appear one after another, 0.03 s apart, in document order (sort them, e.g. west to east, for a sweep). Keep the total under ~2.5 s.
 - **Camera on a photo:** wrap the photo in an SVG (`<image href="x.jpg">` at the photo's pixel size; `href` is relative to the SVG, so a photo beside it in `photos/` is just its name) and add invisible `<rect data-at="…" data-focus="1.6" fill="none">` over the faces or the flag; the camera moves there when the phrase is spoken. No template change.
 
-Word times are exact with ElevenLabs, exact per sentence with Kokoro, and estimated with `say` and espeak, so drafts are close but not exact. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
+Word times are exact with ElevenLabs. With the free voices they are estimated (Kokoro: exact per sentence), unless the optional aligner is installed (`sh <skill>/align-setup.sh`, Apple Silicon, English lines): then Kokoro, `say` and espeak drafts land within about 25 ms. The build prints `words: aligned N/M lines` or says how to install it. Keep a static copy for the page and for recap scenes. Untagged SVGs are shown whole.
 
 **Check:** after one glance, a viewer can say the main relationship out loud.
 
