@@ -229,6 +229,7 @@ function alignWords(scenes) {
     const t = times.map((x, k) => x == null ? words[k].t : Math.min(Math.max(x, win[k][0]), win[k][1]));
     if (t.some((x, k) => k && x < t[k - 1])) continue; // out of order: keep the estimate
     words.forEach((x, k) => { x.t = t[k]; });
+    l.s.timed = true;
     aligned++;
   }
   console.log(`words: aligned ${aligned}/${scenes.length} lines (forced aligner)`);
@@ -241,7 +242,9 @@ if (ENGINE !== "elevenlabs" && MUSIC_PROMPT && !existsSync(join(here, "music.mp3
 let start = 0;
 const parts = [];
 const tc = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
-const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --- | --- | --- | --- | --- | --- |"];
+// Words: "measured" when every word time came from the audio (ElevenLabs, or the aligner),
+// "guessed~" when the words inside a sentence were spread by estimate.
+const board = ["| Time | Scene | Purpose | Narration | On screen | wpm | Words |", "| --- | --- | --- | --- | --- | --- | --- |"];
 for (const [i, s] of scenes.entries()) {
   s.raw = join(out, `vo-${i}.wav`);
   Object.assign(s, await voice(s.vo, s.raw, s.speed ?? speed, s.tempo ?? tempo, s.model ?? MODEL));
@@ -257,7 +260,7 @@ for (const [i, s] of scenes.entries()) {
   const hidden = /<(\w+)(?![^>]*\sdata-at=)[^>]*\sdata-in="([\d.]+)"[^>]*>.*?<\/\1>/g;
   const shown = [s.kicker, s.title, s.sub].filter(Boolean)
     .map(h => h.replace(hidden, (m, _, t) => +t >= LEAD + s.d ? "" : m).replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").trim()).filter(Boolean).join(" / ");
-  board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
+  board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} | ${ENGINE === "elevenlabs" || s.timed ? "measured" : "guessed~"} |`);
   s.start = start;
   // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
   // fall 1.5 s or more from any other, so a long sentence still moves. The template uses them.
