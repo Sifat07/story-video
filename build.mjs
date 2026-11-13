@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { cpus, homedir, platform } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { endsSentence, sentences } from "./sentences.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { frameChecks, readFrames } from "./frames-check.mjs";
 
@@ -93,23 +94,24 @@ async function eleven(spoken, speed, model = MODEL) {
 // Kokoro (82M, runs locally on the CPU). The model loads once (first run downloads ~90 MB) and
 // returns audio only, so each sentence is voiced on its own: sentence starts are exact and the
 // words inside a sentence are placed by character position. Returns per-character start times.
-// Lines are cached in .voice-cache like ElevenLabs lines, so a visuals-only rebuild skips voicing.
+// Lines are cached in .voice-cache like ElevenLabs lines, so a visuals-only rebuild skips voicing;
+// the key is the line's sentences, so a line voiced before the abbreviation fix is voiced again.
 let kokoroModel;
 async function kokoro(spoken, file, speed) {
   const voiceName = process.env.KOKORO_VOICE || "bm_george";
-  const hit = join(cache, createHash("sha1").update(JSON.stringify(["kokoro", voiceName, speed ?? 1, spoken])).digest("hex").slice(0, 16));
+  const hit = join(cache, createHash("sha1").update(JSON.stringify(["kokoro", voiceName, speed ?? 1, sentences(spoken).map(x => x.text)])).digest("hex").slice(0, 16));
   if (existsSync(hit + ".json")) { cachedLines++; copyFileSync(hit + ".wav", file); return JSON.parse(readFileSync(hit + ".json", "utf8")); }
   kokoroModel ??= await kokoroJs.KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "cpu" });
   const pcm = [], starts = [];
   let t = 0, rate = 24000;
-  for (const m of spoken.matchAll(/[^.!?]+[.!?]*\s*/g)) {
-    const a = await kokoroModel.generate(m[0].trim(), { voice: voiceName, speed: speed ?? 1 });
+  for (const m of sentences(spoken)) {
+    const a = await kokoroModel.generate(m.text.trim(), { voice: voiceName, speed: speed ?? 1 });
     rate = a.sampling_rate;
     // Kokoro pads each sentence with ~0.35 s of silence; keep 0.15 s a side so sentences flow.
     const pad = Math.round(0.15 * rate), loud = [...a.audio.keys()].filter(i => Math.abs(a.audio[i]) > 0.01);
     const clip = a.audio.slice(Math.max(0, (loud[0] ?? 0) - pad), (loud.at(-1) ?? a.audio.length) + pad);
     const d = clip.length / rate;
-    for (let c = 0; c < m[0].length; c++) starts[m.index + c] = t + c / m[0].length * d;
+    for (let c = 0; c < m.text.length; c++) starts[m.index + c] = t + c / m.text.length * d;
     pcm.push(clip);
     t += d;
   }
@@ -220,7 +222,7 @@ function alignWords(scenes) {
     // A sentence's window runs from its first word's start to the next sentence's. Kokoro voices
     // each sentence on its own, so its estimates there are exact (each clip leads with 0.15 s of
     // silence, which the aligner rightly skips); say and espeak only know the line's length.
-    const first = words.map((x, k) => k === 0 || (ENGINE === "kokoro" && /[.!?]$/.test(words[k - 1].sp)));
+    const first = words.map((x, k) => k === 0 || (ENGINE === "kokoro" && endsSentence(words[k - 1].sp, x.sp)));
     const win = words.map((_, k) => {
       let a = k; while (!first[a]) a--;
       let b = k + 1; while (b < words.length && !first[b]) b++;
@@ -264,9 +266,9 @@ for (const [i, s] of scenes.entries()) {
   s.start = start;
   // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
   // fall 1.5 s or more from any other, so a long sentence still moves. The template uses them.
-  const after = re => s.words.filter((_, k) => k && re.test(s.words[k - 1].w)).map(x => +(LEAD + x.t).toFixed(2));
-  s.beats = after(/[.!?।]["'”’)»]*$/);
-  for (const t of after(/[,;:]["'”’)»]*$/)) if ([0, ...s.beats].every(b => Math.abs(t - b) >= 1.5)) s.beats.push(t);
+  const after = end => s.words.filter((x, k) => k && end(s.words[k - 1].w, x.w)).map(x => +(LEAD + x.t).toFixed(2));
+  s.beats = after(endsSentence);
+  for (const t of after(w => /[,;:]["'”’)»]*$/.test(w))) if ([0, ...s.beats].every(b => Math.abs(t - b) >= 1.5)) s.beats.push(t);
   s.beats.sort((x, y) => x - y);
   s.dur = LEAD + s.d + (i === scenes.length - 1 ? END_HOLD : TAIL);
   ff("-i", raw, "-af", `adelay=${LEAD * 1000}:all=1,apad=whole_dur=${s.dur}`, padded);
@@ -294,7 +296,7 @@ const LEAN = /^(the|a|an|of|to|at|in|on|by|and|or|but|for|with|from|our|my|your|
 const line = ws => ws.map(x => x.w).join(" ");
 for (const s of scenes) {
   const clauses = [[]];
-  s.words.forEach((x, k) => { clauses.at(-1).push(x); if (/[.!?।;:,]$/.test(x.w) && k < s.words.length - 1) clauses.push([]); });
+  s.words.forEach((x, k) => { clauses.at(-1).push(x); if (k < s.words.length - 1 && (/[;:,]$/.test(x.w) || endsSentence(x.w, s.words[k + 1].w))) clauses.push([]); });
   // A tiny clause ("Online,") joins the next one when both fit on one line.
   for (let k = clauses.length - 2; k >= 0; k--)
     if (line(clauses[k]).length < 12 && line([...clauses[k], ...clauses[k + 1]]).length <= LINE)
@@ -335,7 +337,7 @@ writeFileSync(join(out, `${basename(here)}.srt`),
 // Captions: at most 20 characters a second, 17 in a reel, where viewers read muted, often in a
 // second language (Netflix English Timed Text Style Guide: adults 20, children 17).
 if (mode === "reel") {
-  const s = scenes[0], k = s.words.findIndex(x => /[.!?।]["'”’)»]*$/.test(x.w));
+  const s = scenes[0], k = s.words.findIndex((x, j) => endsSentence(x.w, s.words[j + 1]?.w));
   const hook = LEAD + (s.words[k + 1]?.t ?? s.d);
   if (hook > 3) console.log(`check: scene ${s.id}: the hook (first sentence) takes ${hook.toFixed(1)} s to say: cut it to land inside 3 s`);
 }
