@@ -229,6 +229,7 @@ function alignWords(scenes) {
     const t = times.map((x, k) => x == null ? words[k].t : Math.min(Math.max(x, win[k][0]), win[k][1]));
     if (t.some((x, k) => k && x < t[k - 1])) continue; // out of order: keep the estimate
     words.forEach((x, k) => { x.t = t[k]; });
+    l.s.timed = true;
     aligned++;
   }
   console.log(`words: aligned ${aligned}/${scenes.length} lines (forced aligner)`);
@@ -241,7 +242,9 @@ if (ENGINE !== "elevenlabs" && MUSIC_PROMPT && !existsSync(join(here, "music.mp3
 let start = 0;
 const parts = [];
 const tc = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
-const board = ["| Time | Scene | Purpose | Narration | On screen | wpm |", "| --- | --- | --- | --- | --- | --- |"];
+// Words: "measured" when every word time came from the audio (ElevenLabs, or the aligner),
+// "guessed~" when the words inside a sentence were spread by estimate.
+const board = ["| Time | Scene | Purpose | Narration | On screen | wpm | Words |", "| --- | --- | --- | --- | --- | --- | --- |"];
 for (const [i, s] of scenes.entries()) {
   s.raw = join(out, `vo-${i}.wav`);
   Object.assign(s, await voice(s.vo, s.raw, s.speed ?? speed, s.tempo ?? tempo, s.model ?? MODEL));
@@ -257,7 +260,7 @@ for (const [i, s] of scenes.entries()) {
   const hidden = /<(\w+)(?![^>]*\sdata-at=)[^>]*\sdata-in="([\d.]+)"[^>]*>.*?<\/\1>/g;
   const shown = [s.kicker, s.title, s.sub].filter(Boolean)
     .map(h => h.replace(hidden, (m, _, t) => +t >= LEAD + s.d ? "" : m).replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").trim()).filter(Boolean).join(" / ");
-  board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} |`);
+  board.push(`| ${tc(start)} | ${s.id} | ${s.purpose ?? ""} | ${s.vo} | ${shown} | ${wpm} | ${ENGINE === "elevenlabs" || s.timed ? "measured" : "guessed~"} |`);
   s.start = start;
   // Reframe times from scene start: every sentence start, plus clause starts (after , ; :) that
   // fall 1.5 s or more from any other, so a long sentence still moves. The template uses them.
@@ -308,9 +311,22 @@ for (const s of scenes) {
     }
     return out;
   });
-  parts.forEach((p, k) => cues.push({
+  parts.forEach((p, k) => cues.push({ si: scenes.indexOf(s),
     t0: s.start + LEAD + p[0].t, t1: s.start + LEAD + (parts[k + 1]?.[0].t ?? s.d), text: line(p),
     words: p.map(x => ({ w: x.w, t: s.start + LEAD + x.t, ...(x.i && { i: true }) })) }));
+}
+// A caption on screen under 5/6 s can't be read (Netflix's minimum: 20 frames at 24 fps). A short
+// cue joins its neighbour in the same scene when the two fit on one line; a scene's last cue may
+// stay up into the pause after it. What's left is a check below.
+const MIN_CUE = 5 / 6;
+const mate = k => [k + 1, k - 1].find(j => cues[j]?.si === cues[k].si && `${cues[k].text} ${cues[j].text}`.length <= LINE);
+for (let k; (k = cues.findIndex((c, i) => c.t1 - c.t0 < MIN_CUE && mate(i) != null)) >= 0;) {
+  const a = Math.min(k, mate(k)), b = a + 1;
+  cues.splice(a, 2, { ...cues[a], t1: cues[b].t1, text: `${cues[a].text} ${cues[b].text}`, words: [...cues[a].words, ...cues[b].words] });
+}
+for (const [k, c] of cues.entries()) if (c.t1 - c.t0 < MIN_CUE && cues[k + 1]?.si !== c.si) {
+  const s = scenes[c.si];
+  c.t1 = Math.min(c.t0 + MIN_CUE, s.start + s.dur);
 }
 const srtTime = t => new Date(t * 1000).toISOString().slice(11, 23).replace(".", ",");
 writeFileSync(join(out, `${basename(here)}.srt`),
@@ -326,7 +342,8 @@ if (mode === "reel") {
 const CPS = mode === "reel" ? 17 : 20;
 for (const c of cues) {
   const cps = c.text.length / (c.t1 - c.t0);
-  if (cps > CPS) console.log(`check: at ${tc(c.t0)} caption "${c.text}" reads at ${Math.round(cps)} characters/s (max ${CPS}): slow the voice (tempo) or say less`);
+  if (c.t1 - c.t0 < MIN_CUE - 1 / FPS) console.log(`check: at ${tc(c.t0)} caption "${c.text}" is up for ${(c.t1 - c.t0).toFixed(2)} s (min ${MIN_CUE.toFixed(2)}): too quick to read; join the clause to its neighbour (drop the comma) or say it slower`);
+  else if (cps > CPS) console.log(`check: at ${tc(c.t0)} caption "${c.text}" reads at ${Math.round(cps)} characters/s (max ${CPS}): slow the voice (tempo) or say less`);
 }
 
 // Scenes with a "music" line get their own section, timed to the scene, so the score follows
@@ -372,13 +389,71 @@ if (existsSync(music)) {
   const err = spawnSync("ffmpeg", ["-t", String(total - END_HOLD), "-i", music, "-af", "silencedetect=noise=-45dB:d=1", "-f", "null", "-"], { encoding: "utf8" }).stderr;
   for (const [, t] of err.matchAll(/silence_start: ([\d.]+)/g))
     console.log(`music: silent from ${(+t).toFixed(1)} s: regenerate, or splice a bar over it with ffmpeg atrim/acrossfade`);
-  // Duck the music under the voice, fade it out over the end hold.
+  // Duck the music under the voice, fade it out over the end hold. The ducked music is kept
+  // on its own too (music-ducked.wav), to measure how far under the voice it sits.
   soundtrack = join(out, "mix.wav");
+  const ducked = join(out, "music-ducked.wav");
   ff("-i", join(out, "narration.wav"), "-stream_loop", "-1", "-i", music, "-filter_complex",
     "[0]aformat=channel_layouts=stereo,asplit[v][sc];" +
     `[1]volume=0.5,afade=t=out:st=${(total - 2.5).toFixed(2)}:d=2.5[m];` +
-    "[m][sc]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=350[d];" +
-    "[v][d]amix=inputs=2:duration=first:normalize=0", soundtrack);
+    "[m][sc]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=350,asplit[d][dm];" +
+    "[v][d]amix=inputs=2:duration=first:normalize=0[mix]",
+    "-map", "[mix]", soundtrack, "-map", "[dm]", "-t", total.toFixed(3), ducked);
+  musicChecks(join(out, "narration.wav"), ducked);
+}
+
+// Music checks on the measured audio.
+// - Margin: while the voice speaks, the ducked music should sit at least 10 dB under it, or
+//   words blur on a phone speaker. Per scene, the median over 25 ms steps where the voice is on.
+// - Beat, only when the music has a steady pulse (the rise in loudness repeats at one period
+//   between 0.3 and 1 s; ambient beds don't, and are left alone): onsets are sudden rises
+//   (3 dB+ in 30 ms, a peak within 80 ms); a cut lands on the beat within 70 ms of one. Random
+//   cuts would hit as often as the onsets' ±70 ms windows cover the timeline: that is the bar.
+function levels(input, step) {
+  const r = spawnSync("ffmpeg", ["-v", "error", ...input, "-ac", "1", "-ar", "16000", "-f", "f32le", "-"], { maxBuffer: 1 << 30 });
+  const x = new Float32Array(r.stdout.buffer.slice(r.stdout.byteOffset, r.stdout.byteOffset + r.stdout.length));
+  const H = Math.round(16000 * step), db = [];
+  for (let i = 0; i + H <= x.length; i += H) { let e = 0; for (let j = i; j < i + H; j++) e += x[j] * x[j]; db.push(10 * Math.log10(e / H + 1e-12)); }
+  return db;
+}
+function musicChecks(voiceFile, duckedFile) {
+  const STEP = 0.025, MARGIN = 10, TOL = 0.07, PULSE = 0.35;
+  const v = levels(["-i", voiceFile], STEP), m = levels(["-i", duckedFile], STEP), on = Math.max(...v) - 25;
+  const med = a => a.sort((x, y) => x - y)[a.length >> 1];
+  const margins = scenes.map(s => {
+    const a = Math.floor((s.start + LEAD) / STEP), b = Math.floor((s.start + LEAD + s.d) / STEP), gaps = [];
+    for (let k = a; k < b && k < v.length && k < m.length; k++) if (v[k] > on) gaps.push(v[k] - m[k]);
+    return gaps.length ? med(gaps) : null;
+  });
+  const low = margins.map((g, k) => [g, scenes[k]]).filter(([g]) => g != null).sort((x, y) => x[0] - y[0])[0];
+  if (low) console.log(`music: sits ${Math.round(med(margins.filter(g => g != null)))} dB under the voice while it speaks (least: scene ${low[1].id}, ${low[0].toFixed(1)} dB)`);
+  for (const [k, g] of margins.entries()) if (g != null && g < MARGIN)
+    console.log(`check: scene ${scenes[k].id}: the music sits only ${g.toFixed(1)} dB under the voice (want ${MARGIN}+): lower it, or pick a calmer stretch`);
+  // Beat, on the music as it plays (looped, before ducking: ducking itself makes rises).
+  const cuts = scenes.slice(1).map(s => s.start);
+  if (cuts.length < 3) return;
+  const e = levels(["-stream_loop", "-1", "-i", music, "-t", total.toFixed(3)], 0.01);
+  const rise = e.map((x, k) => k >= 3 ? Math.max(0, x - e[k - 3]) : 0);
+  const mean = rise.reduce((a, b) => a + b, 0) / rise.length;
+  const sd = Math.sqrt(rise.reduce((a, b) => a + (b - mean) ** 2, 0) / rise.length);
+  const c = rise.map(x => x - mean), z = c.reduce((a, b) => a + b * b, 0) || 1;
+  let pulse = 0, period = 0;
+  for (let L = 30; L <= 100; L++) {
+    let s = 0;
+    for (let k = 0; k + L < c.length; k++) s += c[k] * c[k + L];
+    if (s / z > pulse) [pulse, period] = [s / z, L / 100];
+  }
+  if (pulse < PULSE) return console.log(`music: no steady beat (pulse ${pulse.toFixed(2)}, under ${PULSE}), so cuts aren't checked against it`);
+  const onsets = [];
+  for (let k = 1; k < rise.length; k++)
+    if (rise[k] > Math.max(3, mean + 1.5 * sd) && rise.slice(Math.max(0, k - 8), k + 9).every(x => x <= rise[k])) onsets.push(k / 100);
+  const hits = cuts.filter(t => onsets.some(o => Math.abs(o - t) <= TOL)).length;
+  let cover = 0, edge = 0;
+  for (const o of onsets) { const a = Math.max(o - TOL, edge), b = Math.min(o + TOL, total); if (b > a) cover += b - a; edge = Math.max(edge, b); }
+  const chance = cover / total * cuts.length;
+  console.log(`music: beat every ${period.toFixed(2)} s; ${hits}/${cuts.length} cuts land on one (within ${TOL * 1000} ms), where random cuts would land ${chance.toFixed(1)}`);
+  if (hits <= chance && !musicPlan())
+    console.log(`check: the cuts ignore the music's beat (${hits}/${cuts.length}, chance ${chance.toFixed(1)}): give scenes "music" lines so the score follows the cuts, or let it be if the music is a bed`);
 }
 
 // 2. Frames: every frame is window.render(t), a pure function of time. A project's own
@@ -520,14 +595,27 @@ rmSync(join(out, "check"), { recursive: true });
 mkdirSync(join(out, "review"));
 for (let k = 0; k < 20; k++)
   copyFileSync(frameFile(Math.floor((k + 0.5) * frames / 20)), join(out, "review", `${String(k).padStart(2, "0")}.jpg`));
-ff("-i", join(out, "review", "%02d.jpg"), "-vf", `scale=${format === "portrait" ? 270 : 480}:-1,tile=5x4`, "-frames:v", "1", join(out, "review.jpg"));
-rmSync(join(out, "review"), { recursive: true });
-// 2e. Measured checks on the frames themselves (frames-check.mjs): one-frame flashes, and in a
-// reel a screen where nothing changes (captions count) for over 2 s before the end hold.
+// Under it, the soundtrack as a waveform: a tick on top at each word, an accent line at each cut,
+// so a gap, a late word or music swamping the voice shows at a glance.
 {
-  const { flashes, stills } = frameChecks(readFrames(["-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg")]), 2 * FPS);
+  const W = (format === "portrait" ? 270 : 480) * 5, H = 140, x = t => Math.round(t / total * W);
+  const ticks = scenes.flatMap(s => s.words.map(w => `drawbox=x=${x(s.start + LEAD + w.t)}:y=0:w=1:h=16:c=white:t=fill`));
+  const lines = scenes.slice(1).map(s => `drawbox=x=${x(s.start)}:y=0:w=2:h=${H}:c=0xe0a94f:t=fill`);
+  ff("-i", join(out, "review", "%02d.jpg"), "-i", soundtrack, "-filter_complex",
+    `[0]scale=${W / 5}:-1,tile=5x4[r];[1]showwavespic=s=${W}x${H}:colors=0x6cc4a1:scale=sqrt,format=rgb24,${[...ticks, ...lines].join(",")}[w];[r][w]vstack`,
+    "-frames:v", "1", join(out, "review.jpg"));
+}
+rmSync(join(out, "review"), { recursive: true });
+// 2e. Measured checks on the frames themselves (frames-check.mjs): one-frame flashes, two- or
+// three-frame pops, a picture that is one flat colour for 0.4 s or more (black, white or the
+// background: something didn't load), and in a reel a screen where nothing changes (captions
+// count) for over 2 s before the end hold.
+{
+  const { flashes, pops, blanks, stills } = frameChecks(readFrames(["-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg")]), 2 * FPS, Math.round(0.4 * FPS));
   const at = f => `scene ${scenes.findLast(s => s.start <= f / FPS).id}: at ${tc(f / FPS)}`;
   for (const f of flashes) console.log(`check: ${at(f)} one frame differs from both neighbours (a flash): look for a part that shows a frame early`);
+  for (const [a, b] of pops) console.log(`check: ${at(a)} ${b - a + 1} frames pop out of what's around them: look for a part that shows early or a photo that flickers`);
+  for (const [a, b, mean] of blanks) console.log(`check: ${at(a)} the picture is flat ${mean < 40 ? "black" : mean > 215 ? "white" : "colour"} for ${((b - a + 1) / FPS).toFixed(1)} s: a photo or diagram that didn't load, or an empty gap between scenes`);
   if (mode === "reel") for (const [a, b] of stills) {
     const end = Math.min(b + 1, Math.floor((total - END_HOLD) * FPS));
     if (end - a >= 2 * FPS) console.log(`check: ${at(a)} nothing moves for ${((end - a) / FPS).toFixed(1)} s: add a camera move, a part on a word, or a cut`);
@@ -537,18 +625,38 @@ copyFileSync(join(out, "poster.jpg"), frameFile(0));
 
 // 3. Encode. Frames are full-range JPEGs; Instagram and Facebook can wash out a full-range
 // (yuvj420p) upload, so convert to limited-range BT.709 and tag it, then check the file.
+// Loudness in two passes: measure the soundtrack, then apply loudnorm with those numbers as one
+// steady gain (linear), so it lands on -14 LUFS without pumping. When one gain can't (peaks would
+// pass -1.5 dBTP, or the range is over 11 LU), loudnorm falls back to its dynamic mode by itself;
+// a dry run of pass two says which. The file is measured after.
 const mp4 = join(out, `${basename(here)}.mp4`);
+const LOUD = "I=-14:TP=-1.5:LRA=11";
+const loudness = (f, af = `loudnorm=${LOUD}`) => {
+  const e = spawnSync("ffmpeg", ["-hide_banner", "-i", f, "-vn", "-af", `${af}:print_format=json`, "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  try { const j = JSON.parse(e.match(/\{[^{}]*"input_i"[^{}]*\}/)[0]); return isFinite(+j.input_i) ? j : null; } catch { return null; }
+};
+const m = loudness(soundtrack);
+const loudnorm = m ? `loudnorm=${LOUD}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true` : `loudnorm=${LOUD}`;
+const loudMode = m ? loudness(soundtrack, loudnorm)?.normalization_type : "dynamic: the soundtrack couldn't be measured";
 ff("-framerate", String(FPS), "-i", join(out, "frames", "%05d.jpg"), "-i", soundtrack,
   "-vf", "scale=in_range=pc:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709,format=yuv420p",
   "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
-  "-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
+  "-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-af", loudnorm, "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
   "-movflags", "+faststart", mp4);
 const probe = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,pix_fmt,color_range,color_space", "-of", "compact=p=0:nk=1", mp4]).toString().trim().split("\n");
 if (!probe[0].startsWith("h264|yuv420p|tv|bt709") || !probe.some(l => l.startsWith("aac")))
   console.log(`check: ${basename(mp4)} is not upload-safe (${probe.join(", ")}): want h264|yuv420p|tv|bt709 plus aac`);
+const got = loudness(mp4);
+if (got) {
+  console.log(`audio: ${(+got.input_i).toFixed(1)} LUFS, true peak ${(+got.input_tp).toFixed(1)} dBTP (aim -14, at most -1), ${loudMode === "linear" ? "one steady gain" : loudMode ?? "mode unknown"}`);
+  if (Math.abs(+got.input_i + 14) > 1 || +got.input_tp > -1)
+    console.log(`check: ${basename(mp4)} is at ${(+got.input_i).toFixed(1)} LUFS, true peak ${(+got.input_tp).toFixed(1)} dBTP: platforms turn it ${+got.input_i > -14 ? "down" : "up"}; look for one loud effect or a clipped music.mp3`);
+}
 rmSync(join(out, "frames"), { recursive: true });
 const versions = join(out, "versions");
 mkdirSync(versions, { recursive: true });
 const version = join(versions, `v${readdirSync(versions).filter(f => f.endsWith(".mp4")).length + 1}.mp4`);
 copyFileSync(mp4, version);
+// A voice that sounds human: some platforms want realistic AI audio labelled, so remind at the end, where it is seen.
+if (["elevenlabs", "kokoro"].includes(ENGINE)) console.log(`voice: AI voice (${ENGINE}); say so when you post it (e.g. the platform's AI label or a line in the caption)`);
 console.log(`done: ${mp4} (kept as ${version})`);

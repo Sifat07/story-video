@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+  <rect width="800" height="800" fill="#1d2a24"/><circle cx="400" cy="400" r="120" fill="#e0a94f"/>
+  <!-- A pale sheet shown for 0.08 s, then covered: two or three frames that pop. -->
+  <rect width="800" height="800" fill="#f2ede3" data-in="1" data-wipe="left" data-dur="0.001"/>
+  <rect width="800" height="800" fill="#1d2a24" data-in="1.08" data-wipe="left" data-dur="0.001"/>
+  <circle cx="400" cy="400" r="120" fill="#e0a94f" data-in="1.08" data-wipe="left" data-dur="0.001"/>
+</svg>
